@@ -1,4 +1,58 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.DermaMind" parent="android:Theme.Material.Light.NoActionBar">
+
+    <style name="Theme.UTS_UASMobileAppProgramming" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/light_blue_500</item>
+        <item name="colorPrimaryVariant">@color/light_blue_700</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <item name="colorSecondary">@color/pink_accent_200</item>
+        <item name="colorSecondaryVariant">@color/pink_accent_400</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <item name="android:colorBackground">@color/white</item>
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+
+        <item name="android:fontFamily">@font/nunito_sans</item>
+
+        <item name="textAppearanceHeading1">@style/TextAppearance.App.Heading1</item>
+        <item name="textAppearanceHeading2">@style/TextAppearance.App.Heading2</item>
+        <item name="textAppearanceBody">@style/TextAppearance.App.Body</item>
+        <item name="textAppearanceCaption">@style/TextAppearance.App.Caption</item>
     </style>
+
+
+    <style name="TextAppearance.App.Heading1" parent="TextAppearance.MaterialComponents.Headline1">
+        <item name="android:fontFamily">@font/nunito_sans</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:fontWeight">700</item> <item name="android:textColor">?attr/colorOnBackground</item>
+    </style>
+
+    <style name="TextAppearance.App.Heading2" parent="TextAppearance.MaterialComponents.Headline2">
+        <item name="android:fontFamily">@font/nunito_sans</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:fontWeight">600</item> <item name="android:textColor">?attr/colorOnBackground</item>
+    </style>
+
+    <style name="TextAppearance.App.Body" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="android:fontFamily">@font/nunito_sans</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontWeight">400</item> <item name="android:textColor">?attr/colorOnBackground</item>
+    </style>
+
+    <style name="TextAppearance.App.Caption" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:fontFamily">@font/nunito_sans</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontWeight">300</item> <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="TextAppearance.App.Subtitle.Semibold" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:fontFamily">@font/nunito_sans</item>
+        <item name="android:fontWeight">600</item> <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
 </resources>

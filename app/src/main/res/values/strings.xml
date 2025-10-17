@@ -1,3 +1,91 @@
 <resources>
     <string name="app_name">DermaMind</string>
+    <string name="app_subtitle">Your AI Skin Companion</string>
+
+    <string name="next">Next</string>
+    <string name="get_started">Get Started</string>
+    <string name="view_details">View Details</string>
+    <string name="logout">Logout</string>
+
+    <string name="dialog_yes">Yes</string>
+    <string name="dialog_no">No</string>
+    <string name="logout_dialog_title">Confirm Logout</string>
+    <string name="logout_dialog_message">Are you sure you want to log out?</string>
+    <string name="exit_dialog_title">Exit App</string>
+    <string name="exit_dialog_message">Are you sure you want to exit?</string>
+    <string name="feedback_profile_saved">Profile setup complete!</string>
+    <string name="feedback_logged_out">You have been logged out.</string>
+    <string name="validation_skin_type_empty">Please select a skin type.</string>
+    <string name="validation_preferences_empty">Please select at least one preference.</string>
+
+    <string name="onboarding_title_1">DermaMind</string>
+    <string name="onboarding_subtitle_1">Your AI Skin Companion</string>
+    <string name="onboarding_title_2">Scan &amp; Understand</string>
+    <string name="onboarding_subtitle_2">Our AI analyzes your skin for personalized insights.</string>
+
+    <string name="profile_setup_title">Tell Us About Your Skin</string>
+    <string name="profile_setup_subtitle">This helps us tailor your recommendations.</string>
+    <string name="profile_setup_skin_type_label">Skin Type</string>
+    <string name="profile_setup_skin_type_oily">Oily</string>
+    <string name="profile_setup_skin_type_dry">Dry</string>
+    <string name="profile_setup_skin_type_combination">Combination</string>
+    <string name="profile_setup_skin_type_normal">Normal</string>
+    <string name="profile_setup_preferences_label">Product Preferences</string>
+    <string name="profile_setup_pref_fragrance_free">Fragrance-Free</string>
+    <string name="profile_setup_pref_vegan">Vegan</string>
+    <string name="profile_setup_pref_local">Local</string>
+    <string name="profile_setup_pref_halal">Halal</string>
+    <string name="profile_setup_complete_button">Complete Setup</string>
+
+    <string name="home_greeting">Hello, Sarah!</string>
+    <string name="home_subtitle">Ready for your glow-up?</string>
+    <string name="home_scan_button">Scan My Face</string>
+    <string name="home_tip_title">Daily Glow Tip</string>
+    <string name="home_tip_content">Did you know? Antioxidants can protect the skin from pollution!</string>
+
+    <string name="camera_title">Scan Your Face</string>
+    <string name="camera_preview_placeholder">Camera Preview Placeholder</string>
+    <string name="camera_instruction">Position your face in the frame.\nEnsure good lighting.</string>
+    <string name="camera_take_photo_button">Take Photo</string>
+    <string name="camera_upload_button">Upload from Gallery</string>
+
+    <string name="analysis_result_title">Analysis Result</string>
+    <string name="analysis_image_placeholder">Image with analysis overlay here</string>
+    <string name="analysis_card_acne_title">Acne Scars</string>
+    <string name="analysis_card_acne_description">Inflamasi pori-pori yang memicu...</string>
+    <string name="analysis_card_finelines_title">Early Fine Lines</string>
+    <string name="analysis_card_finelines_description">Tanda awal penuaan...</string>
+    <string name="analysis_recommendations_button">See Product Recommendations</string>
+
+    <string name="product_recommendation_title">Product Recommendations</string>
+    <string name="product_recommendation_subtitle">Based on your acne scars &amp; fine lines</string>
+    <string name="product_filter_price">Price</string>
+    <string name="product_filter_brand">Brand</string>
+    <string name="product_filter_vegan">Vegan</string>
+    <string name="product_niacinamide_title">Niacinamide Serum</string>
+    <string name="product_niacinamide_suitability">Suitable for: Acne Scars</string>
+    <string name="product_moisturizer_title">Hydrating Moisturizer</string>
+    <string name="product_moisturizer_suitability">Suitable for: Early Fine Lines</string>
+
+    <string name="skin_journey_title">Your Skin Journey</string>
+    <string name="skin_journey_progress_title">Great Progress!</string>
+    <string name="skin_journey_progress_description">Dark spots reduced by 12% in the last weeks.</string>
+    <string name="skin_journey_graph_placeholder">Graph placeholder</string>
+    <string name="skin_journey_compare_photos_title">Compare Photos</string>
+
+    <string name="profile_avatar_content_description">User Avatar</string>
+    <string name="profile_name">Sarah M.</string>
+    <string name="profile_age">Age 24</string>
+    <string name="profile_skin_type_label">Skin Type</string>
+    <string name="profile_skin_type_value">Combination</string>
+    <string name="profile_preferences_label">Product Preferences</string>
+    <string name="profile_preferences_value">Vegan, Fragrance-Free</string>
+    <string name="profile_routine_label">My Routine</string>
+    <string name="profile_routine_value">Morning &amp; Evening</string>
+
+    <string name="bottom_nav_home">Home</string>
+    <string name="bottom_nav_journey">Journey</string>
+    <string name="bottom_nav_products">Products</string>
+    <string name="bottom_nav_profile">Profile</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>
