@@ -79,10 +79,24 @@ class ProfileSetupFragment : Fragment() {
             }
             prefsHelper.saveString(PreferencesHelper.KEY_PREFERENCES, selectedPreferences)
 
-            val selectedRoutines = selectedRoutinesIds.joinToString(" & ") { id ->
+            val selectedRoutinesTexts = selectedRoutinesIds.map { id ->
                 view.findViewById<Chip>(id).text.toString()
             }
-            prefsHelper.saveString(PreferencesHelper.KEY_ROUTINES, selectedRoutines)
+
+            val routinesText = when {
+                selectedRoutinesTexts.size > 2 -> {
+                    val lastItem = selectedRoutinesTexts.last()
+                    val otherItems = selectedRoutinesTexts.dropLast(1).joinToString(", ")
+                    "$otherItems, & $lastItem"
+                }
+                selectedRoutinesTexts.size == 2 -> {
+                    selectedRoutinesTexts.joinToString(" & ")
+                }
+                else -> {
+                    selectedRoutinesTexts.joinToString("")
+                }
+            }
+            prefsHelper.saveString(PreferencesHelper.KEY_ROUTINES, routinesText)
 
             prefsHelper.saveBoolean(PreferencesHelper.KEY_ONBOARDING_COMPLETED, true)
 
