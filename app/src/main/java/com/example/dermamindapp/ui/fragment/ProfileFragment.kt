@@ -17,6 +17,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 class ProfileFragment : Fragment() {
 
     private lateinit var tvUserName: TextView
+    private lateinit var tvUserAge: TextView
     private lateinit var tvSkinType: TextView
     private lateinit var tvPreferences: TextView
     private lateinit var tvRoutines: TextView
@@ -36,6 +37,7 @@ class ProfileFragment : Fragment() {
 
         // Initialize TextViews from layout
         tvUserName = view.findViewById(R.id.profile_name)
+        tvUserAge = view.findViewById(R.id.profile_age)
         tvSkinType = view.findViewById(R.id.tvSkinTypeValue)
         tvPreferences = view.findViewById(R.id.tvPreferencesValue)
         tvRoutines = view.findViewById(R.id.tvRoutinesValue)
@@ -51,11 +53,13 @@ class ProfileFragment : Fragment() {
 
     private fun loadProfileData() {
         val userName = prefsHelper.getString(PreferencesHelper.KEY_USER_NAME)
+        val userAge = prefsHelper.getString(PreferencesHelper.KEY_USER_AGE)
         val skinType = prefsHelper.getString(PreferencesHelper.KEY_SKIN_TYPE)
         val preferences = prefsHelper.getString(PreferencesHelper.KEY_PREFERENCES)
         val routines = prefsHelper.getString(PreferencesHelper.KEY_ROUTINES)
 
         tvUserName.text = userName ?: "User"
+        tvUserAge.text = "Age ${userAge ?: "Not set"}"
         tvSkinType.text = skinType ?: "Not set"
         tvPreferences.text = preferences ?: "Not set"
         tvRoutines.text = routines ?: "Not set"

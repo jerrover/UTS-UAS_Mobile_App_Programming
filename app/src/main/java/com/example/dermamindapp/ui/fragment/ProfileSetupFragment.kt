@@ -29,6 +29,7 @@ class ProfileSetupFragment : Fragment() {
 
         val completeButton: Button = view.findViewById(R.id.completeButton)
         val nameEditText: EditText = view.findViewById(R.id.nameEditText)
+        val ageEditText: EditText = view.findViewById(R.id.ageEditText)
         val skinTypeChipGroup: ChipGroup = view.findViewById(R.id.skinTypeChipGroup)
         val preferencesChipGroup: ChipGroup = view.findViewById(R.id.preferencesChipGroup)
         val routinesChipGroup: ChipGroup = view.findViewById(R.id.routinesChipGroup)
@@ -36,8 +37,15 @@ class ProfileSetupFragment : Fragment() {
 
         completeButton.setOnClickListener {
             val name = nameEditText.text.toString().trim()
+            val age = ageEditText.text.toString().trim()
+
             if (name.isEmpty()) {
                 Toast.makeText(requireContext(), "Please enter your name.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (age.isEmpty() || age.toIntOrNull() ?: 0 <= 0) {
+                Toast.makeText(requireContext(), "Please enter a valid age.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -61,6 +69,7 @@ class ProfileSetupFragment : Fragment() {
 
             // Simpan Data Pengguna
             prefsHelper.saveString(PreferencesHelper.KEY_USER_NAME, name)
+            prefsHelper.saveString(PreferencesHelper.KEY_USER_AGE, age)
 
             val selectedSkinTypeChip: Chip = view.findViewById(selectedSkinTypeId)
             prefsHelper.saveString(PreferencesHelper.KEY_SKIN_TYPE, selectedSkinTypeChip.text.toString())

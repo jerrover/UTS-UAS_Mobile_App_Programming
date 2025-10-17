@@ -10,6 +10,7 @@ class PreferencesHelper(context: Context) {
 
     companion object {
         const val KEY_USER_NAME = "key_user_name"
+        const val KEY_USER_AGE = "key_user_age"
         const val KEY_SKIN_TYPE = "key_skin_type"
         const val KEY_PREFERENCES = "key_preferences"
         const val KEY_ONBOARDING_COMPLETED = "key_onboarding_completed"

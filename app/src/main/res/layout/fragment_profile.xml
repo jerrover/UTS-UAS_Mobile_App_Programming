@@ -24,6 +24,7 @@
         android:textAppearance="?attr/textAppearanceHeading2" />
 
     <TextView
+        android:id="@+id/profile_age"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/profile_age"
