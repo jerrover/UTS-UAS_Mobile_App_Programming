@@ -43,11 +43,11 @@ class SkinJourneyFragment : Fragment() {
             }
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                // --- PEMBARUAN DI SINI ---
-                val position = viewHolder.adapterPosition // Menggunakan adapterPosition
-                // --- AKHIR PEMBARUAN ---
-                val analysisToDelete = adapter.getItemAt(position)
-                showDeleteConfirmationDialog(analysisToDelete)
+                val position = viewHolder.bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    val analysisToDelete = adapter.getItemAt(position)
+                    showDeleteConfirmationDialog(analysisToDelete)
+                }
             }
         }
         val itemTouchHelper = ItemTouchHelper(itemTouchHelperCallback)
