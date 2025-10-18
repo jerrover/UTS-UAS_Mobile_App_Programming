@@ -14,13 +14,16 @@ import com.example.dermamindapp.R
 import com.example.dermamindapp.data.PreferencesHelper
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
+// Fragment ini menampilkan halaman profil pengguna.
 class ProfileFragment : Fragment() {
 
+    // Komponen UI untuk menampilkan informasi profil.
     private lateinit var tvUserName: TextView
     private lateinit var tvUserAge: TextView
     private lateinit var tvSkinType: TextView
     private lateinit var tvPreferences: TextView
     private lateinit var tvRoutines: TextView
+    // Helper untuk mengakses data dari SharedPreferences.
     private lateinit var prefsHelper: PreferencesHelper
 
     override fun onCreateView(
@@ -35,22 +38,24 @@ class ProfileFragment : Fragment() {
 
         prefsHelper = PreferencesHelper(requireContext())
 
-        // Initialize TextViews from layout
+        // Inisialisasi komponen UI dari layout.
         tvUserName = view.findViewById(R.id.profile_name)
         tvUserAge = view.findViewById(R.id.profile_age)
         tvSkinType = view.findViewById(R.id.tvSkinTypeValue)
         tvPreferences = view.findViewById(R.id.tvPreferencesValue)
         tvRoutines = view.findViewById(R.id.tvRoutinesValue)
 
-        // Load and display data
+        // Memuat dan menampilkan data profil.
         loadProfileData()
 
+        // Menangani aksi klik pada tombol logout.
         val logoutButton: Button = view.findViewById(R.id.logoutButton)
         logoutButton.setOnClickListener {
             showLogoutConfirmationDialog()
         }
     }
 
+    // Memuat data pengguna dari SharedPreferences dan menampilkannya di UI.
     private fun loadProfileData() {
         val userName = prefsHelper.getString(PreferencesHelper.KEY_USER_NAME)
         val userAge = prefsHelper.getString(PreferencesHelper.KEY_USER_AGE)
@@ -65,6 +70,7 @@ class ProfileFragment : Fragment() {
         tvRoutines.text = routines ?: "Not set"
     }
 
+    // Menampilkan dialog konfirmasi sebelum melakukan logout.
     private fun showLogoutConfirmationDialog() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.logout_dialog_title))
@@ -73,13 +79,16 @@ class ProfileFragment : Fragment() {
                 dialog.dismiss()
             }
             .setPositiveButton(getString(R.string.dialog_yes)) { _, _ ->
-                // Clear data on logout
+                // Menghapus semua data dari SharedPreferences saat logout.
                 prefsHelper.clear()
 
+                // Menampilkan pesan konfirmasi logout.
                 Toast.makeText(requireContext(), getString(R.string.feedback_logged_out), Toast.LENGTH_SHORT).show()
+                // Mengatur opsi navigasi untuk membersihkan back stack.
                 val navOptions = NavOptions.Builder()
                     .setPopUpTo(R.id.app_nav, true)
                     .build()
+                // Navigasi kembali ke halaman onboarding.
                 requireActivity().findNavController(R.id.nav_host_fragment)
                     .navigate(R.id.onboardingFragment, null, navOptions)
             }

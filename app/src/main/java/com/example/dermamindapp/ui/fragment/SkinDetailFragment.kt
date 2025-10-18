@@ -1,4 +1,4 @@
-// NEW: Fragment untuk menampilkan detail, mengedit, dan menghapus data.
+// Fragment untuk menampilkan detail, mengedit, dan menghapus data.
 package com.example.dermamindapp.ui.fragment
 
 import android.os.Bundle
@@ -19,11 +19,15 @@ import com.google.android.material.snackbar.Snackbar
 import java.text.SimpleDateFormat
 import java.util.*
 
+// Fragment ini menampilkan detail dari satu entri riwayat analisis kulit.
 class SkinDetailFragment : Fragment() {
 
+    // Mengambil argumen (data analisis) yang dikirimkan melalui Navigasi Komponen.
     private val args by navArgs<SkinDetailFragmentArgs>()
+    // Helper untuk interaksi dengan database.
     private lateinit var dbHelper: DatabaseHelper
 
+    // Komponen UI untuk menampilkan detail.
     private lateinit var tvDate: TextView
     private lateinit var tvResult: TextView
     private lateinit var tvNotes: TextView
@@ -37,7 +41,7 @@ class SkinDetailFragment : Fragment() {
 
         dbHelper = DatabaseHelper(requireContext())
 
-        // NEW: Setup toolbar dengan menu (sesuai materi M04)
+        // Mengatur toolbar dengan tombol kembali dan menu hapus.
         val toolbar: Toolbar = view.findViewById(R.id.toolbar)
         toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
         toolbar.inflateMenu(R.menu.detail_menu)
@@ -48,16 +52,17 @@ class SkinDetailFragment : Fragment() {
             true
         }
 
-        // NEW: Inisialisasi Views menggunakan findViewById
+        // Inisialisasi komponen UI.
         tvDate = view.findViewById(R.id.tvDateDetail)
         tvResult = view.findViewById(R.id.tvResultDetail)
         tvNotes = view.findViewById(R.id.tvNotesDetail)
         ivAnalysis = view.findViewById(R.id.ivAnalysisDetail)
         val btnEditNotes: MaterialButton = view.findViewById(R.id.btnEditNotes)
 
-        // NEW: Mengisi UI dengan data dari argumen navigasi
+        // Mengisi UI dengan data dari argumen navigasi.
         populateUI()
 
+        // Menangani aksi klik pada tombol "Edit Notes".
         btnEditNotes.setOnClickListener {
             showEditNotesDialog()
         }
@@ -65,6 +70,7 @@ class SkinDetailFragment : Fragment() {
         return view
     }
 
+    // Mengisi komponen UI dengan data analisis yang diterima.
     private fun populateUI() {
         tvDate.text = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault()).format(Date(args.currentAnalysis.date))
         tvResult.text = args.currentAnalysis.result
@@ -72,6 +78,7 @@ class SkinDetailFragment : Fragment() {
         Glide.with(this).load(args.currentAnalysis.imageUri).into(ivAnalysis)
     }
 
+    // Menampilkan dialog untuk mengedit catatan.
     private fun showEditNotesDialog() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_notes, null)
         val editText = dialogView.findViewById<EditText>(R.id.etNotes)
@@ -82,15 +89,17 @@ class SkinDetailFragment : Fragment() {
             .setView(dialogView)
             .setPositiveButton("Save") { _, _ ->
                 val updatedNotes = editText.text.toString()
+                // Memperbarui catatan di database.
                 dbHelper.updateNotes(args.currentAnalysis.id, updatedNotes)
-                args.currentAnalysis.notes = updatedNotes // Update objek di memory
-                populateUI()
+                args.currentAnalysis.notes = updatedNotes // Memperbarui objek di memori.
+                populateUI() // Memuat ulang UI dengan data baru.
                 Snackbar.make(requireView(), "Notes updated!", Snackbar.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
+    // Menampilkan dialog konfirmasi dan menghapus data analisis jika dikonfirmasi.
     private fun deleteAnalysis() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Delete Analysis")
@@ -98,7 +107,7 @@ class SkinDetailFragment : Fragment() {
             .setPositiveButton("Delete") { _, _ ->
                 dbHelper.deleteAnalysis(args.currentAnalysis.id)
                 Snackbar.make(requireActivity().findViewById(android.R.id.content), "Successfully deleted.", Snackbar.LENGTH_SHORT).show()
-                findNavController().popBackStack()
+                findNavController().popBackStack() // Kembali ke layar sebelumnya setelah hapus.
             }
             .setNegativeButton("Cancel", null)
             .show()

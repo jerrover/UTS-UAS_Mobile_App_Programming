@@ -11,6 +11,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.PreferencesHelper
 
+// Fragment ini berfungsi sebagai layar pembuka (splash screen) aplikasi.
 class SplashFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -18,14 +19,17 @@ class SplashFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_splash, container, false)
         val prefsHelper = PreferencesHelper(requireContext())
 
+        // Menggunakan Handler untuk menunda navigasi selama 2 detik.
         Handler(Looper.getMainLooper()).postDelayed({
+            // Memastikan fragment masih terpasang (attached) sebelum melakukan navigasi
+            // untuk menghindari NullPointerException.
             if (isAdded) {
-                // Check if user has completed sign in
+                // Memeriksa apakah pengguna sudah pernah login (dengan asumsi nama pengguna disimpan).
                 if (prefsHelper.getString(PreferencesHelper.KEY_USER_NAME) != null) {
-                    // Go to main page
+                    // Jika sudah, langsung navigasi ke halaman utama.
                     findNavController().navigate(R.id.action_splashFragment_to_mainFragment)
                 } else {
-                    // Start onboarding
+                    // Jika belum, navigasi ke alur onboarding.
                     findNavController().navigate(R.id.action_splashFragment_to_onboardingFragment)
                 }
             }

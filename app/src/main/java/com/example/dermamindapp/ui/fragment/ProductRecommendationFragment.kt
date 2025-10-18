@@ -12,6 +12,7 @@ import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.model.Product
 
+// Fragment ini menampilkan daftar produk yang direkomendasikan berdasarkan hasil analisis.
 class ProductRecommendationFragment : Fragment() {
 
     override fun onCreateView(
@@ -20,7 +21,7 @@ class ProductRecommendationFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_product_recommendation, container, false)
 
-        // Data Produk
+        // Data produk (saat ini masih statis/hardcoded).
         val niacinamideSerum = Product(
             id = 1,
             name = "Niacinamide Serum",
@@ -41,11 +42,11 @@ class ProductRecommendationFragment : Fragment() {
             shopeeUrl = "https://shopee.co.id/search?keyword=skintific%205x%20ceramide%20moisture%20gel"
         )
 
-        // Inisialisasi ImageView
+        // Inisialisasi ImageView untuk gambar produk.
         val productImage1: ImageView = view.findViewById(R.id.productImage1)
         val productImage2: ImageView = view.findViewById(R.id.productImage2)
 
-        // Memuat gambar dari URL menggunakan Glide
+        // Memuat gambar dari URL menggunakan Glide.
         Glide.with(this)
             .load(niacinamideSerum.imageUrl)
             .into(productImage1)
@@ -54,10 +55,10 @@ class ProductRecommendationFragment : Fragment() {
             .load(moisturizer.imageUrl)
             .into(productImage2)
 
-
-        // Set OnClickListener untuk tombol "View Details"
+        // Menangani aksi klik pada tombol "View Details" untuk setiap produk.
         val viewDetailsButton1: Button = view.findViewById(R.id.viewDetailsButton1)
         viewDetailsButton1.setOnClickListener {
+            // Navigasi ke halaman detail produk dengan membawa data produk yang dipilih.
             val action = ProductRecommendationFragmentDirections.actionProductRecommendationFragmentToProductDetailsFragment(niacinamideSerum)
             findNavController().navigate(action)
         }
