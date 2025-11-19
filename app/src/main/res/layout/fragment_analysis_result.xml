@@ -19,7 +19,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- PEMBARUAN: Mengganti FrameLayout dengan ImageView -->
     <ImageView
         android:id="@+id/imagePlaceholder"
         android:layout_width="0dp"
@@ -31,7 +30,6 @@
         app:layout_constraintTop_toBottomOf="@id/titleTextView"
         tools:src="@drawable/scan"
         android:contentDescription="@string/analysis_image_placeholder" />
-    <!-- AKHIR PEMBARUAN -->
 
     <LinearLayout
         android:id="@+id/analysisCards"
@@ -56,12 +54,14 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/analysis_card_acne_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/analysis_card_acne_title"
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/analysis_card_acne_description"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/analysis_card_acne_description"
@@ -82,12 +82,14 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/analysis_card_finelines_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/analysis_card_finelines_title"
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/analysis_card_finelines_description"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/analysis_card_finelines_description"

@@ -25,7 +25,6 @@
             app:popUpTo="@id/splashFragment"
             app:popUpToInclusive="true" />
     </fragment>
-
     <fragment
         android:id="@+id/onboardingFragment"
         android:name="com.example.dermamindapp.ui.fragment.OnboardingFragment"
@@ -41,7 +40,6 @@
             app:popUpTo="@id/onboardingFragment"
             app:popUpToInclusive="true" />
     </fragment>
-
     <fragment
         android:id="@+id/profileSetupFragment"
         android:name="com.example.dermamindapp.ui.fragment.ProfileSetupFragment"
@@ -55,7 +53,6 @@
             app:popUpTo="@id/profileSetupFragment"
             app:popUpToInclusive="true" />
     </fragment>
-
     <fragment
         android:id="@+id/mainFragment"
         android:name="com.example.dermamindapp.ui.fragment.MainFragment"
@@ -100,6 +97,13 @@
             app:exitAnim="@android:anim/fade_out"
             app:popUpTo="@id/mainFragment"
             app:popUpToInclusive="false" />
-    </fragment>
 
+        <argument
+            android:name="imageUri"
+            app:argType="string" />
+        <argument
+            android:name="analysisResults"
+            app:argType="string" />
+
+    </fragment>
 </navigation>

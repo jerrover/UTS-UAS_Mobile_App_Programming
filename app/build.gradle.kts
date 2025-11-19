@@ -51,20 +51,58 @@ android {
 }
 
 dependencies {
+    // Dependensi Asli Anda
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(libs.androidx.activity)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
 
+    // ▼▼▼ PERBAIKAN 1: PickVisualMedia ▼▼▼
+    // HAPUS ATAU KOMENTARI BARIS INI:
+    // implementation(libs.androidx.activity)
+    // GANTI DENGAN INI (Versi 1.7.0+ diperlukan):
+    implementation("androidx.activity:activity-ktx:1.9.0")
+
+    // TFLite (Sudah Benar)
+    implementation("org.tensorflow:tensorflow-lite:2.15.0")
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.15.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.15.0")
+
+    // CameraX (Sudah Benar)
+    val camerax_version = "1.3.1"
+    implementation("androidx.camera:camera-core:${camerax_version}")
+    implementation("androidx.camera:camera-camera2:${camerax_version}")
+    implementation("androidx.camera:camera-lifecycle:${camerax_version}")
+    implementation("androidx.camera:camera-view:${camerax_version}")
+
+    // Testing (Sudah Benar)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    // Navigation Component
+    // Navigation Component (Sudah Benar)
     implementation("androidx.navigation:navigation-fragment-ktx:2.8.0")
     implementation("androidx.navigation:navigation-ui-ktx:2.8.0")
 
-    // Glide untuk image loading
-    implementation("com.github.bumptech.glide:glide:4.16.0")
-    kapt("com.github.bumptech.glide:compiler:4.16.0")
+    // Glide
+    implementation("com.github.bumptech.glide:glide:4.16.0") {
+        exclude(group = "com.google.inject", module = "guice")
+    }
+
+    // ▼▼▼ PERBAIKAN 2: Error Dexing 'guice' ▼▼▼
+    kapt("com.github.bumptech.glide:compiler:4.16.0") {
+        // Kecualikan 'guice' agar tidak menyebabkan error dexing di API < 26
+        exclude(group = "com.google.inject", module = "guice")
+    }
+    // Tambahkan juga ini untuk memperbaiki error 'mergeExtDexDebugAndroidTest'
+    kaptAndroidTest("com.github.bumptech.glide:compiler:4.16.0") {
+        exclude(group = "com.google.inject", module = "guice")
+    }
+
+    configurations.all {
+        exclude(group = "com.google.inject", module = "guice")
+    }
+
 }
