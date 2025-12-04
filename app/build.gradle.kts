@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.google.services)
 
     id("kotlin-parcelize")
     id("kotlin-kapt")
@@ -105,4 +106,10 @@ dependencies {
         exclude(group = "com.google.inject", module = "guice")
     }
 
+    // Firebase BOM (Bill of Materials)
+    implementation(platform(libs.firebase.bom))
+
+    // Library Firebase yang kita butuhkan
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.analytics)
 }

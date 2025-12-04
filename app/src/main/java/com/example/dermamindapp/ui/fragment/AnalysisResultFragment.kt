@@ -11,6 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.navArgs // Import navArgs
 import com.bumptech.glide.Glide
@@ -18,6 +19,7 @@ import com.example.dermamindapp.R
 import com.example.dermamindapp.data.db.DatabaseHelper
 import com.example.dermamindapp.data.model.SkinAnalysis
 import com.google.android.material.card.MaterialCardView
+import kotlinx.coroutines.launch
 
 class AnalysisResultFragment : Fragment() {
 
@@ -85,12 +87,9 @@ class AnalysisResultFragment : Fragment() {
 
 
         seeRecommendationsButton.setOnClickListener {
-            // Simpan hasil analisis ke database SEBELUM navigasi
+            // Kita panggil fungsi simpan.
+            // Biarkan fungsi simpan yang melakukan navigasi setelah sukses.
             saveAnalysisToDatabase()
-
-            val bundle = bundleOf(ARG_DESTINATION_ID to R.id.productRecommendationFragment)
-            requireActivity().findNavController(R.id.nav_host_fragment)
-                .navigate(R.id.action_analysisResultFragment_to_mainFragment, bundle)
         }
 
         return view
@@ -112,15 +111,34 @@ class AnalysisResultFragment : Fragment() {
     private fun saveAnalysisToDatabase() {
         val timestamp = System.currentTimeMillis()
 
+        // Buat objek SkinAnalysis baru
+        // Note: ID tidak perlu diisi manual karena sudah default "" di model,
+        // dan akan di-generate otomatis oleh DatabaseHelper (Firestore).
         val analysis = SkinAnalysis(
-            id = 0,
             date = timestamp,
-            imageUri = imageUri, // Menggunakan URI dari argumen
-            result = analysisResult, // Menggunakan hasil dari argumen
+            imageUri = imageUri,
+            result = analysisResult,
             notes = ""
         )
 
-        dbHelper.addAnalysis(analysis)
-        Toast.makeText(requireContext(), "Hasil analisis disimpan!", Toast.LENGTH_SHORT).show()
+        // Jalankan proses simpan di background (Coroutine)
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                // Non-aktifkan tombol biar user gak klik 2x (opsional tapi bagus)
+                // seeRecommendationsButton.isEnabled = false
+
+                dbHelper.addAnalysis(analysis)
+                Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
+
+                // Navigasi dilakukan SETELAH sukses simpan
+                val bundle = bundleOf(ARG_DESTINATION_ID to R.id.productRecommendationFragment)
+                requireActivity().findNavController(R.id.nav_host_fragment)
+                    .navigate(R.id.action_analysisResultFragment_to_mainFragment, bundle)
+
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Gagal menyimpan: ${e.message}", Toast.LENGTH_LONG).show()
+                // seeRecommendationsButton.isEnabled = true
+            }
+        }
     }
 }
