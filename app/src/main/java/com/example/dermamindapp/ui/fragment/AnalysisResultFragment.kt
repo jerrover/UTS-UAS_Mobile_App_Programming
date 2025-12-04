@@ -11,15 +11,14 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider // Import ViewModel
 import androidx.navigation.findNavController
-import androidx.navigation.fragment.navArgs // Import navArgs
+import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
-import com.example.dermamindapp.data.db.DatabaseHelper
 import com.example.dermamindapp.data.model.SkinAnalysis
+import com.example.dermamindapp.ui.viewmodel.AnalysisViewModel // Import ViewModel baru
 import com.google.android.material.card.MaterialCardView
-import kotlinx.coroutines.launch
 
 class AnalysisResultFragment : Fragment() {
 
@@ -27,9 +26,9 @@ class AnalysisResultFragment : Fragment() {
         const val ARG_DESTINATION_ID = "destination_id"
     }
 
-    private lateinit var dbHelper: DatabaseHelper
+    // Ganti DatabaseHelper dengan ViewModel
+    private lateinit var viewModel: AnalysisViewModel
 
-    // Gunakan navArgs untuk mendapatkan data yang dikirim
     private val args: AnalysisResultFragmentArgs by navArgs()
 
     private lateinit var imageUri: String
@@ -40,62 +39,76 @@ class AnalysisResultFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_analysis_result, container, false)
-        dbHelper = DatabaseHelper(requireContext())
 
-        // Ambil data dari argumen
+        // 1. Inisialisasi ViewModel
+        viewModel = ViewModelProvider(this)[AnalysisViewModel::class.java]
+
         imageUri = args.imageUri
         analysisResult = args.analysisResults
 
         val analysisImageView: ImageView = view.findViewById(R.id.imagePlaceholder)
         val seeRecommendationsButton: Button = view.findViewById(R.id.recommendationsButton)
 
-        // Tampilkan gambar yang baru diambil/dipilih
         Glide.with(this)
             .load(Uri.parse(imageUri))
             .into(analysisImageView)
 
-        // --- (Opsional) Tampilkan hasil dinamis di kartu ---
-        // (Ini mengasumsikan Anda ingin memperbarui teks di kartu-kartu statis Anda)
-        val cardLayout: ViewGroup = view.findViewById(R.id.analysisCards)
-        val resultsList = analysisResult.split(", ").map { it.trim() }
+        // Setup kartu hasil (Visual)
+        setupResultCards(view)
 
-        // Mengisi kartu pertama
-        val card1 = cardLayout.getChildAt(0) as? MaterialCardView
-        card1?.let {
-            val title = it.findViewById<TextView>(R.id.analysis_card_acne_title) // ID dari XML Anda
-            val desc = it.findViewById<TextView>(R.id.analysis_card_acne_description)
-            if (resultsList.isNotEmpty()) {
-                title.text = resultsList[0]
-                desc.text = getDescriptionFor(resultsList[0]) // Buat fungsi helper untuk ini
+        // 2. Setup Tombol Simpan
+        seeRecommendationsButton.setOnClickListener {
+            saveAnalysisToDatabase()
+        }
+
+        // 3. Pantau status simpan dari ViewModel
+        viewModel.saveStatus.observe(viewLifecycleOwner) { isSuccess ->
+            if (isSuccess == true) {
+                Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
+
+                // Navigasi ke halaman rekomendasi
+                val bundle = bundleOf(ARG_DESTINATION_ID to R.id.productRecommendationFragment)
+                requireActivity().findNavController(R.id.nav_host_fragment)
+                    .navigate(R.id.action_analysisResultFragment_to_mainFragment, bundle)
+
+                viewModel.resetSaveStatus() // Reset status
+            } else if (isSuccess == false) {
+                Toast.makeText(requireContext(), "Gagal menyimpan data.", Toast.LENGTH_SHORT).show()
+                viewModel.resetSaveStatus()
             }
         }
 
-        // Mengisi kartu kedua
+        return view
+    }
+
+    private fun setupResultCards(view: View) {
+        val cardLayout: ViewGroup = view.findViewById(R.id.analysisCards)
+        val resultsList = analysisResult.split(", ").map { it.trim() }
+
+        val card1 = cardLayout.getChildAt(0) as? MaterialCardView
+        card1?.let {
+            val title = it.findViewById<TextView>(R.id.analysis_card_acne_title)
+            val desc = it.findViewById<TextView>(R.id.analysis_card_acne_description)
+            if (resultsList.isNotEmpty()) {
+                title.text = resultsList[0]
+                desc.text = getDescriptionFor(resultsList[0])
+            }
+        }
+
         val card2 = cardLayout.getChildAt(1) as? MaterialCardView
         card2?.let {
-            val title = it.findViewById<TextView>(R.id.analysis_card_finelines_title) // ID dari XML Anda
+            val title = it.findViewById<TextView>(R.id.analysis_card_finelines_title)
             val desc = it.findViewById<TextView>(R.id.analysis_card_finelines_description)
             if (resultsList.size > 1) {
                 title.text = resultsList[1]
                 desc.text = getDescriptionFor(resultsList[1])
                 it.visibility = View.VISIBLE
             } else {
-                it.visibility = View.GONE // Sembunyikan jika hanya ada 1 hasil
+                it.visibility = View.GONE
             }
         }
-        // --- Akhir bagian opsional ---
-
-
-        seeRecommendationsButton.setOnClickListener {
-            // Kita panggil fungsi simpan.
-            // Biarkan fungsi simpan yang melakukan navigasi setelah sukses.
-            saveAnalysisToDatabase()
-        }
-
-        return view
     }
 
-    // Fungsi helper untuk deskripsi (bisa Anda kembangkan)
     private fun getDescriptionFor(condition: String): String {
         return when (condition) {
             "Jerawat_Aktif" -> "Terdeteksi adanya jerawat yang meradang..."
@@ -107,13 +120,9 @@ class AnalysisResultFragment : Fragment() {
         }
     }
 
-    // Fungsi ini SEKARANG MENGGUNAKAN data dari argumen
     private fun saveAnalysisToDatabase() {
         val timestamp = System.currentTimeMillis()
 
-        // Buat objek SkinAnalysis baru
-        // Note: ID tidak perlu diisi manual karena sudah default "" di model,
-        // dan akan di-generate otomatis oleh DatabaseHelper (Firestore).
         val analysis = SkinAnalysis(
             date = timestamp,
             imageUri = imageUri,
@@ -121,24 +130,7 @@ class AnalysisResultFragment : Fragment() {
             notes = ""
         )
 
-        // Jalankan proses simpan di background (Coroutine)
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                // Non-aktifkan tombol biar user gak klik 2x (opsional tapi bagus)
-                // seeRecommendationsButton.isEnabled = false
-
-                dbHelper.addAnalysis(analysis)
-                Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
-
-                // Navigasi dilakukan SETELAH sukses simpan
-                val bundle = bundleOf(ARG_DESTINATION_ID to R.id.productRecommendationFragment)
-                requireActivity().findNavController(R.id.nav_host_fragment)
-                    .navigate(R.id.action_analysisResultFragment_to_mainFragment, bundle)
-
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Gagal menyimpan: ${e.message}", Toast.LENGTH_LONG).show()
-                // seeRecommendationsButton.isEnabled = true
-            }
-        }
+        // Panggil fungsi simpan di ViewModel
+        viewModel.saveAnalysis(analysis)
     }
 }

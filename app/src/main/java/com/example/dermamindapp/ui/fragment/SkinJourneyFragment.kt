@@ -5,26 +5,27 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import android.widget.Toast
+import android.widget.ProgressBar
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider // Import ViewModel
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.dermamindapp.R
-import com.example.dermamindapp.data.db.DatabaseHelper
 import com.example.dermamindapp.data.model.SkinAnalysis
 import com.example.dermamindapp.ui.adapter.SkinJourneyAdapter
+import com.example.dermamindapp.ui.viewmodel.JourneyViewModel // Import ViewModel kita
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
-import kotlinx.coroutines.launch
 
 class SkinJourneyFragment : Fragment() {
 
-    private lateinit var dbHelper: DatabaseHelper
+    private lateinit var viewModel: JourneyViewModel // Deklarasi ViewModel
     private lateinit var adapter: SkinJourneyAdapter
     private lateinit var recyclerView: RecyclerView
     private lateinit var tvNoData: TextView
+    // Tambahkan ProgressBar di XML nanti (opsional), kalau ga ada hapus aja baris ini
+    // private lateinit var progressBar: ProgressBar
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -32,46 +33,42 @@ class SkinJourneyFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_skin_journey, container, false)
 
-        // Inisialisasi Helper
-        dbHelper = DatabaseHelper(requireContext())
+        // 1. Inisialisasi ViewModel
+        viewModel = ViewModelProvider(this)[JourneyViewModel::class.java]
 
         recyclerView = view.findViewById(R.id.recyclerView)
         tvNoData = view.findViewById(R.id.tvNoData)
 
-        // Setup RecyclerView
-        adapter = SkinJourneyAdapter(mutableListOf())
-        recyclerView.adapter = adapter
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-
+        setupRecyclerView()
         setupSwipeToDelete()
+
+        // 2. Observe (Pantau) Data dari ViewModel
+        // Setiap kali data di database berubah, kode di dalam { ... } ini akan jalan otomatis!
+        viewModel.analyses.observe(viewLifecycleOwner) { list ->
+            adapter.setData(list)
+
+            if (list.isEmpty()) {
+                recyclerView.visibility = View.GONE
+                tvNoData.visibility = View.VISIBLE
+            } else {
+                recyclerView.visibility = View.VISIBLE
+                tvNoData.visibility = View.GONE
+            }
+        }
 
         return view
     }
 
     override fun onResume() {
         super.onResume()
-        loadAnalyses()
+        // Panggil fungsi load di ViewModel
+        viewModel.loadAnalyses()
     }
 
-    private fun loadAnalyses() {
-        // Gunakan lifecycleScope karena getAllAnalyses() itu suspend (async)
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                // Tampilkan loading jika perlu (opsional)
-                val analyses = dbHelper.getAllAnalyses()
-
-                if (analyses.isEmpty()) {
-                    recyclerView.visibility = View.GONE
-                    tvNoData.visibility = View.VISIBLE
-                } else {
-                    recyclerView.visibility = View.VISIBLE
-                    tvNoData.visibility = View.GONE
-                    adapter.setData(analyses)
-                }
-            } catch (e: Exception) {
-                Toast.makeText(context, "Gagal memuat data: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
+    private fun setupRecyclerView() {
+        adapter = SkinJourneyAdapter(mutableListOf())
+        recyclerView.adapter = adapter
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
     }
 
     private fun setupSwipeToDelete() {
@@ -97,20 +94,13 @@ class SkinJourneyFragment : Fragment() {
             .setTitle("Hapus Riwayat")
             .setMessage("Apakah Anda yakin ingin menghapus riwayat ini?")
             .setNegativeButton("Batal") { dialog, _ ->
-                adapter.notifyDataSetChanged() // Kembalikan item yang di-swipe
+                adapter.notifyDataSetChanged()
                 dialog.dismiss()
             }
             .setPositiveButton("Hapus") { _, _ ->
-                // Panggil fungsi delete di background thread
-                viewLifecycleOwner.lifecycleScope.launch {
-                    try {
-                        dbHelper.deleteAnalysis(analysis.id)
-                        loadAnalyses() // Reload data setelah hapus
-                        Snackbar.make(requireView(), "Riwayat dihapus", Snackbar.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Gagal menghapus: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                // Panggil fungsi delete di ViewModel
+                viewModel.deleteAnalysis(analysis.id)
+                Snackbar.make(requireView(), "Riwayat dihapus", Snackbar.LENGTH_SHORT).show()
             }
             .setOnCancelListener {
                 adapter.notifyDataSetChanged()
