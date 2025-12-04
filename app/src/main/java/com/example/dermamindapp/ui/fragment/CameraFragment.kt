@@ -6,6 +6,10 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -15,6 +19,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,17 +41,20 @@ import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class CameraFragment : Fragment() {
+// Tambahkan implementasi SensorEventListener
+class CameraFragment : Fragment(), SensorEventListener {
 
-    // Coroutine
     private val scope = CoroutineScope(Job() + Dispatchers.Main)
     private var imageCapture: ImageCapture? = null
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var skinAnalyzer: SkinAnalyzer
-
     private lateinit var previewView: PreviewView
 
-    // Launcher untuk meminta izin kamera
+    // Variabel Sensor
+    private lateinit var sensorManager: SensorManager
+    private var lightSensor: Sensor? = null
+    private lateinit var tvLightWarning: TextView
+
     private val activityResultLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             var permissionGranted = true
@@ -62,14 +70,10 @@ class CameraFragment : Fragment() {
             }
         }
 
-    // Launcher untuk memilih gambar dari galeri
     private val pickMediaLauncher =
         registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
             if (uri != null) {
-                Log.d(TAG, "Media dipilih: $uri")
                 analyzeImage(uri)
-            } else {
-                Log.d(TAG, "Tidak ada media dipilih")
             }
         }
 
@@ -80,18 +84,17 @@ class CameraFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_camera, container, false)
 
         val toolbar: Toolbar = view.findViewById(R.id.toolbar)
-        toolbar.setNavigationOnClickListener {
-            findNavController().popBackStack()
-        }
+        toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
 
         previewView = view.findViewById(R.id.cameraPreview)
+        tvLightWarning = view.findViewById(R.id.tvLightWarning) // Inisialisasi Text Warning
+
         val takePhotoButton: Button = view.findViewById(R.id.takePhotoButton)
         val uploadButton: Button = view.findViewById(R.id.uploadButton)
 
         takePhotoButton.setOnClickListener { takePhoto() }
         uploadButton.setOnClickListener { selectImageFromGallery() }
 
-        // Minta izin kamera
         if (!allPermissionsGranted()) {
             requestPermissions()
         } else {
@@ -101,7 +104,43 @@ class CameraFragment : Fragment() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         skinAnalyzer = SkinAnalyzer(requireContext())
 
+        // Setup Sensor Cahaya
+        sensorManager = requireContext().getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+
         return view
+    }
+
+    // Aktifkan sensor saat layar tampil
+    override fun onResume() {
+        super.onResume()
+        lightSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
+    // Matikan sensor saat pindah layar (Hemat Baterai)
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
+    }
+
+    // Logika Sensor: Cek terang/gelap
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
+            val lux = event.values[0] // Satuan cahaya (lux)
+
+            // Jika di bawah 10 lux (remang-remang/gelap)
+            if (lux < 10) {
+                tvLightWarning.visibility = View.VISIBLE
+            } else {
+                tvLightWarning.visibility = View.GONE
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        // Tidak dipakai
     }
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
@@ -118,18 +157,14 @@ class CameraFragment : Fragment() {
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder()
                 .build()
-                .also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
+                .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
             imageCapture = ImageCapture.Builder().build()
-            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA // Default ke kamera depan
+            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
             try {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview, imageCapture
-                )
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
             } catch (exc: Exception) {
                 Log.e(TAG, "Gagal binding CameraX", exc)
             }
@@ -138,9 +173,7 @@ class CameraFragment : Fragment() {
 
     private fun takePhoto() {
         val imageCapture = imageCapture ?: return
-
-        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US)
-            .format(System.currentTimeMillis())
+        val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis())
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
@@ -148,28 +181,20 @@ class CameraFragment : Fragment() {
                 put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/DermaMind")
             }
         }
-
-        val outputOptions = ImageCapture.OutputFileOptions
-            .Builder(
-                requireContext().contentResolver,
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                contentValues
-            )
-            .build()
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(
+            requireContext().contentResolver,
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            contentValues
+        ).build()
 
         imageCapture.takePicture(
             outputOptions,
             ContextCompat.getMainExecutor(requireContext()),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onError(exc: ImageCaptureException) {
-                    Log.e(TAG, "Gagal mengambil foto: ${exc.message}", exc)
-                    Toast.makeText(requireContext(), "Gagal mengambil foto.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Gagal foto.", Toast.LENGTH_SHORT).show()
                 }
-
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    val msg = "Foto berhasil diambil: ${output.savedUri}"
-                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
-                    Log.d(TAG, msg)
                     output.savedUri?.let { analyzeImage(it) }
                 }
             }
@@ -177,54 +202,30 @@ class CameraFragment : Fragment() {
     }
 
     private fun selectImageFromGallery() {
-        pickMediaLauncher.launch(
-            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-        )
+        pickMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
-
-
 
     private fun analyzeImage(uri: Uri) {
         scope.launch {
             try {
-                // 1. Ubah URI ke Bitmap
-                val bitmap = withContext(Dispatchers.IO) {
-                    getBitmapFromUri(requireContext(), uri)
-                }
-                if (bitmap == null) {
-                    Toast.makeText(requireContext(), "Gagal memuat gambar", Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
+                val bitmap = withContext(Dispatchers.IO) { getBitmapFromUri(requireContext(), uri) }
+                if (bitmap == null) return@launch
 
-                // 2. Jalankan Analisis (di thread IO)
-                val (probabilities, diagnosis) = withContext(Dispatchers.IO) {
-                    skinAnalyzer.analyze(bitmap)
-                }
-
-                // 3. Format hasil
+                val (probabilities, diagnosis) = withContext(Dispatchers.IO) { skinAnalyzer.analyze(bitmap) }
                 val detectedConditions = diagnosis.filter { it.value }.keys.joinToString(", ")
                 val resultString = if (detectedConditions.isEmpty()) "Kulit Sehat" else detectedConditions
 
-                Log.d(TAG, "Hasil Analisis: $resultString")
-                Log.d(TAG, "Probabilitas: $probabilities")
-
-                // 4. Navigasi ke AnalysisResultFragment dengan membawa data
                 findNavController().navigate(
                     CameraFragmentDirections.actionCameraFragmentToAnalysisResultFragment(
-                        uri.toString(),
-                        resultString
+                        uri.toString(), resultString
                     )
                 )
-
-
             } catch (e: Exception) {
-                Log.e(TAG, "Analisis gagal: ${e.message}", e)
                 Toast.makeText(requireContext(), "Analisis gagal.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // Helper untuk mengubah Uri menjadi Bitmap
     private fun getBitmapFromUri(context: Context, uri: Uri): Bitmap? {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -232,25 +233,19 @@ class CameraFragment : Fragment() {
                 ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
                     decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                     decoder.isMutableRequired = true
-                }.copy(Bitmap.Config.ARGB_8888, true) // <— paksa ARGB_8888
+                }.copy(Bitmap.Config.ARGB_8888, true)
             } else {
-                @Suppress("DEPRECATION")
-                MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-                    .copy(Bitmap.Config.ARGB_8888, true)
+                MediaStore.Images.Media.getBitmap(context.contentResolver, uri).copy(Bitmap.Config.ARGB_8888, true)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Gagal konversi Uri ke Bitmap", e)
             null
         }
     }
 
-
-
     override fun onDestroyView() {
         super.onDestroyView()
         cameraExecutor.shutdown()
-        scope.cancel() // Batalkan semua coroutine saat fragment dihancurkan
-        // skinAnalyzer.close() // Panggil close di onDestroy dari Activity/VM
+        scope.cancel()
     }
 
     companion object {

@@ -41,6 +41,21 @@
             android:text="@string/camera_instruction"
             android:textSize="16sp" />
 
+        <TextView
+            android:id="@+id/tvLightWarning"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚠️ Cahaya terlalu gelap! Hasil analisis mungkin tidak akurat."
+            android:textColor="#FFFFFF"
+            android:background="#B3FF0000"
+            android:padding="12dp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@+id/takePhotoButton"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginBottom="24dp"/>
+
         <Button
             android:id="@+id/takePhotoButton"
             android:layout_width="wrap_content"
