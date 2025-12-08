@@ -16,40 +16,40 @@
             android:layout_height="?attr/actionBarSize"/>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:fillViewport="true"> <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
 
-        <LinearLayout
+        <ImageView
+            android:id="@+id/articleImage"
+            android:layout_width="match_parent"
+            android:layout_height="250dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_article"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/articleTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:padding="16dp"
+            android:textAppearance="?attr/textAppearanceHeading2"
+            android:text="Article Title" />
 
-            <ImageView
-                android:id="@+id/articleImage"
-                android:layout_width="match_parent"
-                android:layout_height="250dp"
-                android:scaleType="centerCrop"
-                android:src="@drawable/ic_article"
-                android:contentDescription="@null" />
+        <TextView
+            android:id="@+id/articleContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="16dp"
+            android:textAppearance="?attr/textAppearanceBody"
+            android:text="Article content goes here..." />
 
-            <TextView
-                android:id="@+id/articleTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:textAppearance="?attr/textAppearanceHeading2"
-                android:text="Article Title" />
-
-            <TextView
-                android:id="@+id/articleContent"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:textAppearance="?attr/textAppearanceBody"
-                android:text="Article content goes here..." />
-
-        </LinearLayout>
-    </ScrollView>
+    </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
 </LinearLayout>
