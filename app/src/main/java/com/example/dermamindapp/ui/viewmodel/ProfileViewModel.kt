@@ -19,6 +19,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val _saveStatus = MutableLiveData<Boolean?>()
     val saveStatus: LiveData<Boolean?> = _saveStatus
 
+    private val _createdUserId = MutableLiveData<String?>()
+    val createdUserId: LiveData<String?> = _createdUserId
+
     fun saveUserProfile(user: User) {
         viewModelScope.launch {
             try {
@@ -29,6 +32,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
                 // Proses kirim data
                 docRef.set(finalUser).await()
+
+                _createdUserId.value = docRef.id
+                _saveStatus.value = true
 
                 Log.d("FIREBASE_DEBUG", "BERHASIL! Data user tersimpan dengan ID: ${docRef.id}")
                 _saveStatus.value = true

@@ -61,8 +61,15 @@ class SkinJourneyFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Panggil fungsi load di ViewModel
-        viewModel.loadAnalyses()
+
+        // 1. Inisialisasi PreferencesHelper (karena belum ada di fragment ini)
+        val prefsHelper = com.example.dermamindapp.data.PreferencesHelper(requireContext())
+
+        // 2. Ambil ID User
+        val userId = prefsHelper.getString("KEY_FIREBASE_USER_ID") ?: ""
+
+        // 3. Suruh ViewModel ambil data milik ID tersebut
+        viewModel.loadAnalyses(userId)
     }
 
     private fun setupRecyclerView() {

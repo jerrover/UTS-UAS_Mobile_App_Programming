@@ -34,18 +34,22 @@ class DatabaseHelper(context: Context?) {
     }
 
     // READ: Ambil semua data
-    suspend fun getAllAnalyses(): List<SkinAnalysis> {
+    suspend fun getAllAnalyses(userId: String): List<SkinAnalysis> {
         return try {
             val snapshot = collectionRef
-                .orderBy("date", Query.Direction.DESCENDING) // Urutkan dari yang terbaru
+                .whereEqualTo("userId", userId) // <--- FILTER: Cuma ambil punya user ini
+                .orderBy("date", Query.Direction.DESCENDING)
                 .get()
                 .await()
 
-            // Ubah setiap dokumen JSON menjadi objek SkinAnalysis
-            snapshot.toObjects(SkinAnalysis::class.java)
+            snapshot.documents.mapNotNull { doc ->
+                val analysis = doc.toObject(SkinAnalysis::class.java)
+                analysis?.id = doc.id
+                analysis
+            }
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal mengambil data", e)
-            emptyList()
+            emptyList() // Kembalikan list kosong kalau error/index belum dibuat
         }
     }
 

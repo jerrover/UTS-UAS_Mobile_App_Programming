@@ -6,6 +6,7 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class SkinAnalysis(
     var id: String = "",
+    var userId: String = "",
     val date: Long = 0L,
     val imageUri: String = "",
     val result: String = "",

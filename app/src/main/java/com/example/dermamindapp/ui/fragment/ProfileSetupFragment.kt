@@ -43,6 +43,13 @@ class ProfileSetupFragment : Fragment() {
         val preferencesChipGroup: ChipGroup = view.findViewById(R.id.preferencesChipGroup)
         val routinesChipGroup: ChipGroup = view.findViewById(R.id.routinesChipGroup)
 
+        viewModel.createdUserId.observe(viewLifecycleOwner) { userId ->
+            userId?.let {
+                // SIMPAN ID FIREBASE KE HP (PENTING!)
+                prefsHelper.saveString("KEY_FIREBASE_USER_ID", it)
+            }
+        }
+
         // 2. Pasang 'Telinga' untuk mendengar kabar dari ViewModel (Sukses/Gagal)
         viewModel.saveStatus.observe(viewLifecycleOwner) { isSuccess ->
             if (isSuccess == true) {

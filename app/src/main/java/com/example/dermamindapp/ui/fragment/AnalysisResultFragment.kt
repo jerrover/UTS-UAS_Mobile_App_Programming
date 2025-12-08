@@ -123,14 +123,19 @@ class AnalysisResultFragment : Fragment() {
     private fun saveAnalysisToDatabase() {
         val timestamp = System.currentTimeMillis()
 
+        // Ambil ID User yang lagi login
+        // (Pastikan kamu sudah inisialisasi prefsHelper)
+        val prefsHelper = com.example.dermamindapp.data.PreferencesHelper(requireContext())
+        val currentUserId = prefsHelper.getString("KEY_FIREBASE_USER_ID") ?: "unknown_user"
+
         val analysis = SkinAnalysis(
+            userId = currentUserId, // <--- MASUKKAN ID SINI
             date = timestamp,
             imageUri = imageUri,
             result = analysisResult,
             notes = ""
         )
 
-        // Panggil fungsi simpan di ViewModel
         viewModel.saveAnalysis(analysis)
     }
 }

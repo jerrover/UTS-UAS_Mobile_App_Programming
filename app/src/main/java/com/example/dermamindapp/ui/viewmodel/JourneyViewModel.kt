@@ -19,15 +19,21 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
 
-    // Status pesan untuk memberi tahu UI (misal: "Sukses update", "Gagal hapus")
     private val _statusMessage = MutableLiveData<String?>()
     val statusMessage: LiveData<String?> = _statusMessage
 
-    fun loadAnalyses() {
+    // PERBAIKAN: Variabel untuk menyimpan ID User saat ini
+    private var currentUserId: String = ""
+
+    // Fungsi Load Data (Sekarang menyimpan ID-nya)
+    fun loadAnalyses(userId: String) {
+        this.currentUserId = userId // Simpan ID ke variabel
+
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val list = dbHelper.getAllAnalyses()
+                // Ambil data sesuai ID
+                val list = dbHelper.getAllAnalyses(userId)
                 _analyses.value = list
             } catch (e: Exception) {
                 _analyses.value = emptyList()
@@ -43,27 +49,29 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
             try {
                 dbHelper.deleteAnalysis(id)
                 _statusMessage.value = "Riwayat berhasil dihapus"
-                loadAnalyses() // Reload data
+
+                // PERBAIKAN: Panggil loadAnalyses menggunakan ID yang sudah disimpan
+                loadAnalyses(currentUserId)
             } catch (e: Exception) {
                 _statusMessage.value = "Gagal menghapus: ${e.message}"
             }
         }
     }
 
-    // --- FUNGSI BARU ---
     fun updateNotes(id: String, notes: String) {
         viewModelScope.launch {
             try {
                 dbHelper.updateNotes(id, notes)
                 _statusMessage.value = "Catatan berhasil diperbarui"
-                loadAnalyses() // Reload data biar sinkron
+
+                // PERBAIKAN: Panggil loadAnalyses menggunakan ID yang sudah disimpan
+                loadAnalyses(currentUserId)
             } catch (e: Exception) {
                 _statusMessage.value = "Gagal update: ${e.message}"
             }
         }
     }
 
-    // Reset pesan setelah ditampilkan agar tidak muncul berulang
     fun clearStatusMessage() {
         _statusMessage.value = null
     }
