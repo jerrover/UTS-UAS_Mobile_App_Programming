@@ -7,97 +7,106 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dermamindapp.data.api.ApiConfig
 import com.example.dermamindapp.data.model.Article
-import kotlinx.coroutines.launch
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import retrofit2.HttpException
-import com.google.firebase.firestore.FirebaseFirestore // Import ini masih diperlukan untuk fitur lain, tapi kita tidak pakai untuk artikel.
+import java.io.IOException
 
 class HomeViewModel : ViewModel() {
 
-    // Kita tidak perlu FirebaseFirestore untuk Artikel lagi, tapi biarkan import di atas.
-    // Variabel ini diperlukan jika kamu masih menggunakan Firebase untuk fitur lain di HomeViewModel.
     private val db = FirebaseFirestore.getInstance()
     private val articlesCollection = db.collection("articles")
 
     private val _articles = MutableLiveData<List<Article>>()
     val articles: LiveData<List<Article>> = _articles
 
-    // API Key dari user
     private val API_KEY = "7c1be6ed60154a36bf8dd1966939161c"
 
+    init {
+        // Panggil fetchArticles saat ViewModel pertama kali dibuat
+        fetchArticles()
+    }
+
     fun fetchArticles() {
-        // Jalankan di Coroutine Scope (Wajib untuk API)
         viewModelScope.launch(Dispatchers.IO) {
+            // 1. Pastikan dulu data fallback (cache) ada di Firebase (Hanya jalan sekali saat kosong)
+            checkAndSeedFallback()
+
             try {
-                // 1. COBA AMBIL DARI API (Online)
+                // 2. COBA AMBIL DARI API (Online)
                 val response = ApiConfig.getApiService().getHealthNews(apiKey = API_KEY)
 
                 if (response.articles.isNullOrEmpty()) {
-                    // Jika API tidak error tapi mengembalikan list kosong, pakai fallback
-                    Log.e("API_STATUS", "API returned empty list, using fallback.")
-                    _articles.postValue(getFallbackArticles())
+                    // Jika API tidak error tapi kosong, pakai data cache Firestore
+                    Log.e("API_CACHE", "API returned empty list, using Firestore cache.")
+                    _articles.postValue(getArticlesFromFirestore())
                     return@launch
                 }
 
                 // Konversi model API ke model lokal (Article)
-                val newArticles = response.articles?.mapIndexed { index, apiArticle ->
+                val liveArticles = response.articles?.mapIndexed { index, apiArticle ->
                     Article(
                         id = index + 1,
                         title = apiArticle.title ?: "Judul Tidak Tersedia",
                         content = apiArticle.description ?: "Deskripsi tidak tersedia, baca selengkapnya...",
                         imageUrl = apiArticle.urlToImage ?: "https://via.placeholder.com/150"
                     )
-                }?.take(5) ?: getFallbackArticles()
+                }?.take(5) ?: getFallbackArticlesList()
 
-                Log.d("API_SUCCESS", "Berhasil ambil ${newArticles.size} artikel dari API.")
-                _articles.postValue(newArticles)
+                Log.d("API_SUCCESS", "Berhasil ambil ${liveArticles.size} artikel LIVE dari API.")
+                _articles.postValue(liveArticles)
 
             } catch (e: HttpException) {
-                // 2. CATCH ERROR API (Contoh: 403 Forbidden, 401 Unauthorized)
-                Log.e("API_FALLBACK", "HTTP Error (${e.code()}), menggunakan data fallback. Pesan: ${e.message()}")
-                _articles.postValue(getFallbackArticles())
+                // 3. ERROR API (e.g., 403 Forbidden) -> Gunakan Cache Firestore
+                Log.e("API_CACHE", "HTTP Error (${e.code()}). Menggunakan data cache Firestore. Pesan: ${e.message()}")
+                _articles.postValue(getArticlesFromFirestore())
+            } catch (e: IOException) {
+                // 4. ERROR KONEKSI/UMUM (Offline) -> Gunakan Cache Firestore
+                Log.e("API_CACHE", "Koneksi Error. Menggunakan data cache Firestore. Pesan: ${e.message}")
+                _articles.postValue(getArticlesFromFirestore())
             } catch (e: Exception) {
-                // 3. CATCH ERROR KONEKSI/UMUM (Offline)
-                Log.e("API_FALLBACK", "Koneksi Error (${e.message}), menggunakan data fallback.")
-                _articles.postValue(getFallbackArticles())
+                Log.e("API_CACHE", "Error umum. Menggunakan data cache Firestore. Pesan: ${e.message}")
+                _articles.postValue(getArticlesFromFirestore())
             }
         }
     }
 
-    // Fungsi untuk data Hardcode (Fallback)
-    private fun getFallbackArticles(): List<Article> {
-        Log.d("API_FALLBACK", "Menampilkan data artikel offline.")
+    // Fungsi Kunci: Memeriksa dan mengisi data fallback ke Firestore (Hanya jalan sekali)
+    private suspend fun checkAndSeedFallback() {
+        // Mengecek apakah collection sudah terisi
+        val snapshot = articlesCollection.get().await()
+        if (snapshot.isEmpty) {
+            Log.d("FIREBASE_SEED", "Collection 'articles' kosong. Memulai Seeding data fallback...")
+            val fallback = getFallbackArticlesList()
+            // Menggunakan .set() dengan ID untuk memastikan data tidak duplikat dan mudah ditimpa
+            fallback.forEach { article ->
+                articlesCollection.document(article.id.toString()).set(article)
+            }
+        } else {
+            Log.d("FIREBASE_SEED", "Collection 'articles' sudah ada, Seeding dilewati.")
+        }
+    }
+
+    // Fungsi Kunci: Membaca data dari Firestore (Data Cache)
+    private suspend fun getArticlesFromFirestore(): List<Article> {
+        return try {
+            val snapshot = articlesCollection.orderBy("id").get().await()
+            snapshot.toObjects(Article::class.java)
+        } catch (e: Exception) {
+            Log.e("FIREBASE_CACHE_ERROR", "Gagal mengambil data dari Firestore: ${e.message}")
+            getFallbackArticlesList() // Kalau Firestore-nya juga error, kasih hardcode terakhir
+        }
+    }
+
+    // Data Hardcode yang akan dijadikan Cache Fallback
+    private fun getFallbackArticlesList(): List<Article> {
         return listOf(
-            Article(
-                id = 1,
-                title = "Urutan Skincare Pagi",
-                content = "Facial Wash -> Toner -> Serum -> Moisturizer -> Sunscreen. Wajib sunscreen!",
-                imageUrl = "https://images.unsplash.com/photo-1556228552-523d4b4e09d2?auto=format&fit=crop&w=800&q=80"
-            ),
-            Article(
-                id = 2,
-                title = "Jangan Pencet Jerawat!",
-                content = "Memencet jerawat bisa bikin bopeng dan infeksi menyebar.",
-                imageUrl = "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?auto=format&fit=crop&w=800&q=80"
-            ),
-            Article(
-                id = 3,
-                title = "Manfaat Retinol",
-                content = "Zat anti-aging terbaik. Gunakan malam hari dan wajib sunscreen paginya.",
-                imageUrl = "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80"
-            ),
-            Article(
-                id = 4,
-                title = "Ciri Skin Barrier Rusak",
-                content = "Kulit perih dan kemerahan? Stop eksfoliasi, fokus hidrasi dengan Ceramide.",
-                imageUrl = "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&w=800&q=80"
-            ),
-            Article(
-                id = 5,
-                title = "Mitos Kulit Berminyak",
-                content = "Kulit berminyak tetap butuh pelembab (pilih tekstur Gel).",
-                imageUrl = "https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?auto=format&fit=crop&w=800&q=80"
-            )
+            Article(1, "Jangan Pencet Jerawat!", "Memencet jerawat bisa bikin bopeng dan infeksi menyebar.", "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?auto=format&fit=crop&w=800&q=80"),
+            Article(2, "Manfaat Retinol", "Zat anti-aging terbaik. Gunakan malam hari dan wajib sunscreen paginya.", "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80"),
+            Article(3, "Ciri Skin Barrier Rusak", "Kulit perih dan kemerahan? Stop eksfoliasi, fokus hidrasi dengan Ceramide.", "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&w=800&q=80"),
+            Article(4, "Mitos Kulit Berminyak", "Kulit berminyak tetap butuh pelembab (pilih tekstur Gel).", "https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?auto=format&fit=crop&w=800&q=80")
         )
     }
 }
