@@ -1,3 +1,4 @@
+// File: src/main/java/com/example/dermamindapp/ml/SkinAnalyzer.kt
 package com.example.dermamindapp.ml
 
 import android.content.Context
@@ -5,7 +6,6 @@ import android.graphics.Bitmap
 import android.util.Log
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.flex.FlexDelegate
 import org.tensorflow.lite.support.common.ops.NormalizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
@@ -23,115 +23,71 @@ class SkinAnalyzer(
     private val imageProcessor: ImageProcessor
 
     companion object {
-        private const val INPUT_IMAGE_WIDTH = 224
-        private const val INPUT_IMAGE_HEIGHT = 224
+        private const val INPUT_SIZE = 224
 
-        // DAFTAR KELAS (Wajib ada agar tidak error "Unresolved reference")
-        private val ALL_CLASSES = listOf(
-            "Jerawat_Aktif",
-            "Kulit_Berminyak",
-            "Kemerahan",
-            "Tekstur_Pori_pori",
-            "Kulit_Sehat"
-        )
-
-        private val OPTIMAL_THRESHOLDS = mapOf(
-            "Jerawat_Aktif" to 0.45f,
-            "Kulit_Berminyak" to 0.30f,
-            "Kemerahan" to 0.40f,
-            "Tekstur_Pori_pori" to 0.35f,
-            "Kulit_Sehat" to 0.50f
+        // Pastikan list ini sesuai urutan output model Anda saat training
+        private val LABELS = listOf(
+            "Jerawat_Aktif", "Kulit_Berminyak", "Kemerahan", "Tekstur_Pori", "Kulit_Sehat"
         )
     }
 
     init {
-        val options = Interpreter.Options().apply {
-            setNumThreads(4)
-            // FlexDelegate: Hanya aktifkan jika model benar-benar butuh (sering bikin crash jika dependency kurang)
-            // Jika masih crash, coba comment bagian try-catch ini
-            try {
-                addDelegate(FlexDelegate())
-            } catch (e: Exception) {
-                Log.w("SkinAnalyzer", "FlexDelegate unavailable: ${e.message}")
-            }
-        }
+        val options = Interpreter.Options()
+        // Opsi thread untuk performa
+        options.setNumThreads(4)
 
-        interpreter = try {
-            Interpreter(loadModelFile(modelName), options)
+        try {
+            interpreter = Interpreter(loadModelFile(), options)
         } catch (e: Exception) {
-            Log.e("SkinAnalyzer", "Failed to load model: ${e.message}")
-            throw IllegalStateException("Cannot initialize TFLite Interpreter", e)
+            Log.e("SkinAnalyzer", "Error init model: ${e.message}")
+            throw e
         }
 
         imageProcessor = ImageProcessor.Builder()
-            .add(ResizeOp(INPUT_IMAGE_HEIGHT, INPUT_IMAGE_WIDTH, ResizeOp.ResizeMethod.BILINEAR))
-            .add(NormalizeOp(127.5f, 127.5f))
+            .add(ResizeOp(INPUT_SIZE, INPUT_SIZE, ResizeOp.ResizeMethod.BILINEAR))
+            .add(NormalizeOp(127.5f, 127.5f)) // Normalisasi range -1 ke 1
             .build()
-
-        // LOG DEBUG: Cek output shape model yang sebenarnya
-        try {
-            val outputTensor = interpreter.getOutputTensor(0)
-            Log.d("SkinAnalyzer", "Model Output Shape: ${outputTensor.shape().contentToString()}")
-        } catch (e: Exception) {
-            Log.e("SkinAnalyzer", "Gagal membaca output tensor", e)
-        }
     }
 
-    private fun loadModelFile(modelName: String): MappedByteBuffer {
-        val fd = context.assets.openFd(modelName)
-        val inputStream = FileInputStream(fd.fileDescriptor)
-        val channel = inputStream.channel
-        return channel.map(FileChannel.MapMode.READ_ONLY, fd.startOffset, fd.declaredLength)
-    }
-
-    private fun preprocess(bitmap: Bitmap): TensorImage {
-        val tensorImage = TensorImage(DataType.FLOAT32)
-        tensorImage.load(bitmap)
-        return imageProcessor.process(tensorImage)
-    }
-
-    private fun postprocess(outputProbabilities: FloatArray): SkinResult {
-        val probabilities = mutableMapOf<String, Float>()
-        val diagnosis = mutableMapOf<String, Boolean>()
-
-        Log.d("SkinAnalyzer", "=== HASIL ANALISIS ===")
-
-        // Gunakan zip agar aman jika jumlah kelas model beda dengan ALL_CLASSES
-        ALL_CLASSES.zip(outputProbabilities.toList()).forEach { (className, score) ->
-            val threshold = OPTIMAL_THRESHOLDS[className] ?: 0.5f
-            probabilities[className] = score
-            diagnosis[className] = score > threshold
-
-            Log.d("SkinAnalyzer", "$className: $score (Threshold: $threshold)")
-        }
-
-        return SkinResult(probabilities, diagnosis)
+    private fun loadModelFile(): MappedByteBuffer {
+        val fileDescriptor = context.assets.openFd(modelName)
+        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+        val fileChannel = inputStream.channel
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, fileDescriptor.startOffset, fileDescriptor.declaredLength)
     }
 
     fun analyze(bitmap: Bitmap): SkinResult {
-        if (bitmap.width <= 0 || bitmap.height <= 0) {
-            throw IllegalArgumentException("Bitmap invalid: ukuran tidak boleh 0.")
+        val tensorImage = TensorImage(DataType.FLOAT32)
+        tensorImage.load(bitmap)
+        val processedImage = imageProcessor.process(tensorImage)
+
+        // 1. Baca ukuran output model secara dinamis (Anti-Crash)
+        val outputTensor = interpreter.getOutputTensor(0)
+        val outputShape = outputTensor.shape() // misal [1, 5]
+        val outputSize = outputShape[1] // ambil angka 5
+
+        // 2. Siapkan buffer sesuai ukuran model
+        val outputBuffer = Array(1) { FloatArray(outputSize) }
+
+        // 3. Jalankan
+        interpreter.run(processedImage.buffer, outputBuffer)
+
+        return postprocess(outputBuffer[0])
+    }
+
+    private fun postprocess(outputs: FloatArray): SkinResult {
+        val probabilities = mutableMapOf<String, Float>()
+        val diagnosis = mutableMapOf<String, Boolean>()
+
+        // Mapping hasil ke Label
+        // Menggunakan 'zip' agar aman jika jumlah label vs output beda
+        LABELS.zip(outputs.toList()).forEach { (label, score) ->
+            probabilities[label] = score
+            // Threshold simpel 0.5, bisa disesuaikan
+            diagnosis[label] = score > 0.45f
         }
 
-        return try {
-            val inputImage = preprocess(bitmap)
-
-            // --- PERBAIKAN UTAMA (ANTI CRASH) ---
-            // Baca ukuran output langsung dari model, jangan hardcode '5'
-            val outputTensor = interpreter.getOutputTensor(0)
-            val outputShape = outputTensor.shape() // Misal [1, 5]
-            val outputSize = outputShape.last() // Ambil angka terakhir (5)
-
-            val output = Array(1) { FloatArray(outputSize) }
-
-            // Jalankan model
-            interpreter.run(inputImage.buffer, output)
-
-            postprocess(output[0])
-        } catch (e: Exception) {
-            Log.e("SkinAnalyzer", "Inference failed: ${e.message}")
-            throw RuntimeException("Gagal menjalankan analisis kulit: ${e.message}", e)
-        }
+        return SkinResult(probabilities, diagnosis)
     }
 
     fun close() {

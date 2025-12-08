@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory // Import Baru
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -42,10 +42,11 @@ import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-// Implementasi SensorEventListener untuk deteksi cahaya
 class CameraFragment : Fragment(), SensorEventListener {
 
+    // Scope untuk coroutine
     private val scope = CoroutineScope(Job() + Dispatchers.Main)
+
     private var imageCapture: ImageCapture? = null
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var skinAnalyzer: SkinAnalyzer
@@ -102,6 +103,7 @@ class CameraFragment : Fragment(), SensorEventListener {
             startCamera()
         }
 
+        // Inisialisasi Executor dan Analyzer di sini
         cameraExecutor = Executors.newSingleThreadExecutor()
         skinAnalyzer = SkinAnalyzer(requireContext())
 
@@ -112,7 +114,6 @@ class CameraFragment : Fragment(), SensorEventListener {
         return view
     }
 
-    // Aktifkan sensor saat layar tampil
     override fun onResume() {
         super.onResume()
         lightSensor?.let {
@@ -120,18 +121,14 @@ class CameraFragment : Fragment(), SensorEventListener {
         }
     }
 
-    // Matikan sensor saat pindah layar (Hemat Baterai)
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(this)
     }
 
-    // Logika Sensor: Cek terang/gelap
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
-            val lux = event.values[0] // Satuan cahaya (lux)
-
-            // Jika di bawah 10 lux (remang-remang/gelap)
+            val lux = event.values[0]
             if (lux < 10) {
                 tvLightWarning.visibility = View.VISIBLE
             } else {
@@ -141,7 +138,7 @@ class CameraFragment : Fragment(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Tidak dipakai tapi wajib di-override
+        // Tidak dipakai
     }
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
@@ -222,23 +219,21 @@ class CameraFragment : Fragment(), SensorEventListener {
                     )
                 )
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Analisis gagal.", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "Analisis gagal", e)
+                Toast.makeText(requireContext(), "Analisis gagal: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // [DIPERBAIKI] Fungsi ini sekarang aman dari warning deprecated
     private fun getBitmapFromUri(context: Context, uri: Uri): Bitmap? {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                // Untuk Android 9 (Pie) ke atas -> Gunakan ImageDecoder
                 val source = ImageDecoder.createSource(context.contentResolver, uri)
                 ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
                     decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                     decoder.isMutableRequired = true
                 }.copy(Bitmap.Config.ARGB_8888, true)
             } else {
-                // Untuk Android versi lama -> Gunakan BitmapFactory (Pengganti getBitmap)
                 context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     BitmapFactory.decodeStream(inputStream)
                 }?.copy(Bitmap.Config.ARGB_8888, true)
@@ -249,17 +244,25 @@ class CameraFragment : Fragment(), SensorEventListener {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        // Tutup analyzer untuk mencegah memory leak
+    // --- PERBAIKAN: Gunakan onDestroyView untuk membersihkan Resource View ---
+    override fun onDestroyView() {
+        super.onDestroyView()
+
+        // 1. Tutup SkinAnalyzer (PENTING untuk mencegah Memory Leak Native)
         if (::skinAnalyzer.isInitialized) {
             skinAnalyzer.close()
         }
+
+        // 2. Matikan Executor Kamera
+        if (::cameraExecutor.isInitialized) {
+            cameraExecutor.shutdown()
+        }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        cameraExecutor.shutdown()
+    // --- PERBAIKAN: Gunakan onDestroy untuk membersihkan Scope Fragment ---
+    override fun onDestroy() {
+        super.onDestroy()
+        // Batalkan semua coroutine yang berjalan
         scope.cancel()
     }
 

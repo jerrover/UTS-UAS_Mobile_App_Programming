@@ -11,13 +11,13 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider // Import ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
-import com.example.dermamindapp.data.model.SkinAnalysis
-import com.example.dermamindapp.ui.viewmodel.AnalysisViewModel // Import ViewModel baru
+import com.example.dermamindapp.data.PreferencesHelper
+import com.example.dermamindapp.ui.viewmodel.AnalysisViewModel
 import com.google.android.material.card.MaterialCardView
 
 class AnalysisResultFragment : Fragment() {
@@ -26,13 +26,11 @@ class AnalysisResultFragment : Fragment() {
         const val ARG_DESTINATION_ID = "destination_id"
     }
 
-    // Ganti DatabaseHelper dengan ViewModel
     private lateinit var viewModel: AnalysisViewModel
-
     private val args: AnalysisResultFragmentArgs by navArgs()
-
     private lateinit var imageUri: String
     private lateinit var analysisResult: String
+    private lateinit var prefsHelper: PreferencesHelper
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -40,7 +38,8 @@ class AnalysisResultFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_analysis_result, container, false)
 
-        // 1. Inisialisasi ViewModel
+        // 1. Inisialisasi
+        prefsHelper = PreferencesHelper(requireContext())
         viewModel = ViewModelProvider(this)[AnalysisViewModel::class.java]
 
         imageUri = args.imageUri
@@ -49,36 +48,72 @@ class AnalysisResultFragment : Fragment() {
         val analysisImageView: ImageView = view.findViewById(R.id.imagePlaceholder)
         val seeRecommendationsButton: Button = view.findViewById(R.id.recommendationsButton)
 
-        Glide.with(this)
-            .load(Uri.parse(imageUri))
-            .into(analysisImageView)
+        // Load gambar
+        try {
+            Glide.with(this)
+                .load(Uri.parse(imageUri))
+                .into(analysisImageView)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
-        // Setup kartu hasil (Visual)
         setupResultCards(view)
 
         // 2. Setup Tombol Simpan
         seeRecommendationsButton.setOnClickListener {
-            saveAnalysisToDatabase()
+            saveAnalysisToCloud()
         }
 
-        // 3. Pantau status simpan dari ViewModel
-        viewModel.saveStatus.observe(viewLifecycleOwner) { isSuccess ->
-            if (isSuccess == true) {
-                Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
+        setupObservers(seeRecommendationsButton)
 
-                // Navigasi ke halaman rekomendasi
-                val bundle = bundleOf(ARG_DESTINATION_ID to R.id.productRecommendationFragment)
-                requireActivity().findNavController(R.id.nav_host_fragment)
-                    .navigate(R.id.action_analysisResultFragment_to_mainFragment, bundle)
+        return view
+    }
 
-                viewModel.resetSaveStatus() // Reset status
-            } else if (isSuccess == false) {
-                Toast.makeText(requireContext(), "Gagal menyimpan data.", Toast.LENGTH_SHORT).show()
-                viewModel.resetSaveStatus()
+    private fun setupObservers(button: Button) {
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            button.isEnabled = !isLoading
+            button.text = if (isLoading) "Mengupload..." else "Lihat Rekomendasi"
+        }
+
+        viewModel.statusMessage.observe(viewLifecycleOwner) { msg ->
+            if (!msg.isNullOrEmpty()) {
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
             }
         }
 
-        return view
+        viewModel.saveStatus.observe(viewLifecycleOwner) { isSuccess ->
+            if (isSuccess == true) {
+                Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
+                try {
+                    val bundle = bundleOf(ARG_DESTINATION_ID to R.id.productRecommendationFragment)
+                    requireActivity().findNavController(R.id.nav_host_fragment)
+                        .navigate(R.id.action_analysisResultFragment_to_mainFragment, bundle)
+                } catch (e: Exception) {
+                    Toast.makeText(requireContext(), "Navigasi gagal: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+                viewModel.resetSaveStatus()
+            }
+        }
+    }
+
+    private fun saveAnalysisToCloud() {
+        // PERBAIKAN: Gunakan konstanta KEY_USER_ID yang benar
+        val currentUserId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
+
+        if (currentUserId.isNullOrEmpty()) {
+            // Jika masih null, pancing inisialisasi DatabaseHelper untuk membuat ID baru
+            com.example.dermamindapp.data.db.DatabaseHelper(requireContext())
+
+            // Coba ambil lagi
+            val retryId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
+            if (retryId.isNullOrEmpty()) {
+                Toast.makeText(requireContext(), "Gagal: User ID error. Coba restart aplikasi.", Toast.LENGTH_LONG).show()
+                return
+            }
+            viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, retryId)
+        } else {
+            viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, currentUserId)
+        }
     }
 
     private fun setupResultCards(view: View) {
@@ -90,8 +125,12 @@ class AnalysisResultFragment : Fragment() {
             val title = it.findViewById<TextView>(R.id.analysis_card_acne_title)
             val desc = it.findViewById<TextView>(R.id.analysis_card_acne_description)
             if (resultsList.isNotEmpty()) {
-                title.text = resultsList[0]
-                desc.text = getDescriptionFor(resultsList[0])
+                val condition = resultsList[0]
+                title.text = condition.replace("_", " ")
+                desc.text = getDescriptionFor(condition)
+                it.visibility = View.VISIBLE
+            } else {
+                it.visibility = View.GONE
             }
         }
 
@@ -100,8 +139,9 @@ class AnalysisResultFragment : Fragment() {
             val title = it.findViewById<TextView>(R.id.analysis_card_finelines_title)
             val desc = it.findViewById<TextView>(R.id.analysis_card_finelines_description)
             if (resultsList.size > 1) {
-                title.text = resultsList[1]
-                desc.text = getDescriptionFor(resultsList[1])
+                val condition = resultsList[1]
+                title.text = condition.replace("_", " ")
+                desc.text = getDescriptionFor(condition)
                 it.visibility = View.VISIBLE
             } else {
                 it.visibility = View.GONE
@@ -111,31 +151,12 @@ class AnalysisResultFragment : Fragment() {
 
     private fun getDescriptionFor(condition: String): String {
         return when (condition) {
-            "Jerawat_Aktif" -> "Terdeteksi adanya jerawat yang meradang..."
-            "Kemerahan" -> "Kulit menunjukkan area kemerahan atau iritasi..."
-            "Kulit_Berminyak" -> "Terdeteksi produksi sebum berlebih..."
-            "Tekstur_Pori_pori" -> "Pori-pori tampak membesar atau tekstur tidak merata..."
-            "Kulit_Sehat" -> "Kulit Anda tampak sehat dan terhidrasi!"
-            else -> "Kondisi kulit terdeteksi."
+            "Jerawat_Aktif" -> "Terdeteksi adanya jerawat yang meradang. Disarankan menggunakan bahan aktif seperti Salicylic Acid."
+            "Kemerahan" -> "Kulit menunjukkan tanda iritasi atau sensitif. Gunakan produk yang menenangkan seperti Centella Asiatica."
+            "Kulit_Berminyak" -> "Produksi sebum berlebih terdeteksi. Gunakan pembersih wajah yang lembut dan oil-free."
+            "Tekstur_Pori_pori" -> "Pori-pori tampak membesar. Eksfoliasi rutin (AHA/BHA) dapat membantu menghaluskan tekstur."
+            "Kulit_Sehat" -> "Selamat! Kulit Anda tampak sehat dan terawat. Pertahankan rutinitas Anda."
+            else -> "Kondisi kulit terdeteksi. Konsultasikan dengan ahli jika perlu."
         }
-    }
-
-    private fun saveAnalysisToDatabase() {
-        val timestamp = System.currentTimeMillis()
-
-        // Ambil ID User yang lagi login
-        // (Pastikan kamu sudah inisialisasi prefsHelper)
-        val prefsHelper = com.example.dermamindapp.data.PreferencesHelper(requireContext())
-        val currentUserId = prefsHelper.getString("KEY_FIREBASE_USER_ID") ?: "unknown_user"
-
-        val analysis = SkinAnalysis(
-            userId = currentUserId, // <--- MASUKKAN ID SINI
-            date = timestamp,
-            imageUri = imageUri,
-            result = analysisResult,
-            notes = ""
-        )
-
-        viewModel.saveAnalysis(analysis)
     }
 }

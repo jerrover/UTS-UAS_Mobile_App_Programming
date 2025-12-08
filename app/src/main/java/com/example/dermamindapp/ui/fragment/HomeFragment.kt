@@ -68,7 +68,6 @@ class HomeFragment : Fragment() {
         scanButton.setOnClickListener {
             try {
                 // Menggunakan NavController dari Activity (Induk) untuk navigasi ke CameraFragment
-                // yang berada di graf navigasi utama (app_nav)
                 requireActivity().findNavController(R.id.nav_host_fragment)
                     .navigate(R.id.action_mainFragment_to_cameraFragment)
             } catch (e: Exception) {
@@ -94,7 +93,7 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Muat ulang data setiap kali fragment tampil (agar data terbaru muncul setelah scan)
+        // Muat ulang data setiap kali fragment tampil
         loadLastAnalysis()
     }
 
@@ -105,19 +104,16 @@ class HomeFragment : Fragment() {
                 // Ambil data user dari SharedPrefs
                 val userName = prefsHelper.getString(PreferencesHelper.KEY_USER_NAME) ?: "User"
 
-                // [PENTING] Ambil ID User untuk query database
-                // Pastikan Anda sudah menambahkan KEY_USER_ID di PreferencesHelper.kt
+                // Cek apakah userId valid (Opsional, karena dbHelper sekarang auto-handle ID)
                 val userId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
-
-                // Cek apakah userId valid
                 if (userId.isNullOrEmpty()) {
-                    // Jika belum ada ID (user baru/belum setup), tampilkan state kosong
                     showEmptyState(userName)
                     return@launch
                 }
 
-                // Panggil data dari Firestore (Async) dengan filter userId
-                val analyses = dbHelper.getAllAnalyses(userId)
+                // PERBAIKAN: Panggil getAllAnalyses() TANPA parameter userId
+                // DatabaseHelper sudah menyimpan userId secara internal
+                val analyses = dbHelper.getAllAnalyses()
                 val lastAnalysis = analyses.firstOrNull()
 
                 if (lastAnalysis != null) {
@@ -171,14 +167,12 @@ class HomeFragment : Fragment() {
         val latestArticle = articles.firstOrNull()
 
         if (latestArticle != null) {
-            // Load Gambar Artikel Utama
             Glide.with(this)
                 .load(latestArticle.imageUrl)
-                .placeholder(R.drawable.ic_article) // Pastikan ada placeholder drawable
+                .placeholder(R.drawable.ic_article)
                 .centerCrop()
                 .into(articleImage)
 
-            // Klik Artikel -> Detail
             articleCard1.setOnClickListener {
                 try {
                     val action = HomeFragmentDirections.actionHomeFragmentToArticleDetailFragment(latestArticle)

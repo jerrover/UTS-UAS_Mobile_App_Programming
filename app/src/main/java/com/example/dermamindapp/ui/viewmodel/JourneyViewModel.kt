@@ -22,18 +22,19 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
     private val _statusMessage = MutableLiveData<String?>()
     val statusMessage: LiveData<String?> = _statusMessage
 
-    // PERBAIKAN: Variabel untuk menyimpan ID User saat ini
+    // Variabel untuk menyimpan ID User saat ini (Opsional, tapi bagus untuk refresh)
     private var currentUserId: String = ""
 
-    // Fungsi Load Data (Sekarang menyimpan ID-nya)
+    // Fungsi Load Data
     fun loadAnalyses(userId: String) {
-        this.currentUserId = userId // Simpan ID ke variabel
+        this.currentUserId = userId
 
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Ambil data sesuai ID
-                val list = dbHelper.getAllAnalyses(userId)
+                // PERBAIKAN DI SINI:
+                // Hapus parameter 'userId'. DatabaseHelper sudah tahu ID-nya dari internal init.
+                val list = dbHelper.getAllAnalyses()
                 _analyses.value = list
             } catch (e: Exception) {
                 _analyses.value = emptyList()
@@ -50,7 +51,7 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
                 dbHelper.deleteAnalysis(id)
                 _statusMessage.value = "Riwayat berhasil dihapus"
 
-                // PERBAIKAN: Panggil loadAnalyses menggunakan ID yang sudah disimpan
+                // Refresh data setelah hapus
                 loadAnalyses(currentUserId)
             } catch (e: Exception) {
                 _statusMessage.value = "Gagal menghapus: ${e.message}"
@@ -64,7 +65,7 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
                 dbHelper.updateNotes(id, notes)
                 _statusMessage.value = "Catatan berhasil diperbarui"
 
-                // PERBAIKAN: Panggil loadAnalyses menggunakan ID yang sudah disimpan
+                // Refresh data setelah update
                 loadAnalyses(currentUserId)
             } catch (e: Exception) {
                 _statusMessage.value = "Gagal update: ${e.message}"
