@@ -71,6 +71,7 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.15.0")
 
+
     // CameraX (Sudah Benar)
     val camerax_version = "1.3.1"
     implementation("androidx.camera:camera-core:${camerax_version}")

@@ -9,14 +9,18 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.PreferencesHelper
+import com.example.dermamindapp.data.model.User
+import com.example.dermamindapp.ui.viewmodel.ProfileViewModel // Pastikan import ini ada
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 
-// Fragment ini menangani proses pengaturan profil pengguna untuk pertama kali.
 class ProfileSetupFragment : Fragment() {
+
+    private lateinit var viewModel: ProfileViewModel
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -28,90 +32,75 @@ class ProfileSetupFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Inisialisasi komponen UI dan helper.
+        // 1. Panggil ViewModel
+        viewModel = ViewModelProvider(this)[ProfileViewModel::class.java]
+        val prefsHelper = PreferencesHelper(requireContext())
+
         val completeButton: Button = view.findViewById(R.id.completeButton)
         val nameEditText: EditText = view.findViewById(R.id.nameEditText)
         val ageEditText: EditText = view.findViewById(R.id.ageEditText)
         val skinTypeChipGroup: ChipGroup = view.findViewById(R.id.skinTypeChipGroup)
         val preferencesChipGroup: ChipGroup = view.findViewById(R.id.preferencesChipGroup)
         val routinesChipGroup: ChipGroup = view.findViewById(R.id.routinesChipGroup)
-        val prefsHelper = PreferencesHelper(requireContext())
 
-        // Menangani aksi klik pada tombol "Complete Setup".
+        // 2. Pasang 'Telinga' untuk mendengar kabar dari ViewModel (Sukses/Gagal)
+        viewModel.saveStatus.observe(viewLifecycleOwner) { isSuccess ->
+            if (isSuccess == true) {
+                // Kalau sukses simpan online, lanjut masuk aplikasi
+                goToMainPage()
+            } else {
+                Toast.makeText(requireContext(), "Gagal simpan online, masuk mode offline.", Toast.LENGTH_SHORT).show()
+                // Tetap lanjut masuk aplikasi (biar user ga stuck)
+                goToMainPage()
+            }
+        }
+
         completeButton.setOnClickListener {
+            // --- BAGIAN VALIDASI INPUT (Sama kayak dulu) ---
             val name = nameEditText.text.toString().trim()
             val age = ageEditText.text.toString().trim()
 
-            // Validasi input nama.
-            if (name.isEmpty()) {
-                Toast.makeText(requireContext(), "Please enter your name.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+            if (name.isEmpty()) { Toast.makeText(requireContext(), "Isi nama dulu!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+            if (age.isEmpty()) { Toast.makeText(requireContext(), "Isi umur!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
 
-            // Validasi input usia.
-            if (age.isEmpty() || age.toIntOrNull() ?: 0 <= 0) {
-                Toast.makeText(requireContext(), "Please enter a valid age.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            // Validasi pemilihan tipe kulit.
             val selectedSkinTypeId = skinTypeChipGroup.checkedChipId
-            if (selectedSkinTypeId == View.NO_ID) {
-                Toast.makeText(requireContext(), getString(R.string.validation_skin_type_empty), Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+            if (selectedSkinTypeId == View.NO_ID) { Toast.makeText(requireContext(), "Pilih tipe kulit!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
 
-            // Validasi pemilihan preferensi produk.
             val selectedPreferencesIds = preferencesChipGroup.checkedChipIds
-            if (selectedPreferencesIds.isEmpty()) {
-                Toast.makeText(requireContext(), getString(R.string.validation_preferences_empty), Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+            if (selectedPreferencesIds.isEmpty()) { Toast.makeText(requireContext(), "Pilih preferensi!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
 
-            // Validasi pemilihan rutinitas.
             val selectedRoutinesIds = routinesChipGroup.checkedChipIds
-            if (selectedRoutinesIds.isEmpty()) {
-                Toast.makeText(requireContext(), "Please select at least one routine.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+            if (selectedRoutinesIds.isEmpty()) { Toast.makeText(requireContext(), "Pilih rutinitas!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
 
-            // Menyimpan data pengguna ke SharedPreferences.
+            // --- AMBIL DATA DARI CHIP ---
+            val skinType = view.findViewById<Chip>(selectedSkinTypeId).text.toString()
+            val preferences = selectedPreferencesIds.joinToString(", ") { id -> view.findViewById<Chip>(id).text.toString() }
+            val routines = selectedRoutinesIds.joinToString(", ") { id -> view.findViewById<Chip>(id).text.toString() }
+
+            // 3. SIMPAN KE HP (Wajib biar aplikasi 'ingat' user)
             prefsHelper.saveString(PreferencesHelper.KEY_USER_NAME, name)
             prefsHelper.saveString(PreferencesHelper.KEY_USER_AGE, age)
+            prefsHelper.saveString(PreferencesHelper.KEY_SKIN_TYPE, skinType)
+            prefsHelper.saveString(PreferencesHelper.KEY_PREFERENCES, preferences)
+            prefsHelper.saveString(PreferencesHelper.KEY_ROUTINES, routines)
 
-            val selectedSkinTypeChip: Chip = view.findViewById(selectedSkinTypeId)
-            prefsHelper.saveString(PreferencesHelper.KEY_SKIN_TYPE, selectedSkinTypeChip.text.toString())
-
-            val selectedPreferences = selectedPreferencesIds.joinToString(", ") { id ->
-                view.findViewById<Chip>(id).text.toString()
-            }
-            prefsHelper.saveString(PreferencesHelper.KEY_PREFERENCES, selectedPreferences)
-
-            // Menggabungkan teks rutinitas yang dipilih dengan format yang sesuai.
-            val selectedRoutinesTexts = selectedRoutinesIds.map { id ->
-                view.findViewById<Chip>(id).text.toString()
-            }
-            val routinesText = when {
-                selectedRoutinesTexts.size > 2 -> {
-                    val lastItem = selectedRoutinesTexts.last()
-                    val otherItems = selectedRoutinesTexts.dropLast(1).joinToString(", ")
-                    "$otherItems, & $lastItem"
-                }
-                selectedRoutinesTexts.size == 2 -> {
-                    selectedRoutinesTexts.joinToString(" & ")
-                }
-                else -> {
-                    selectedRoutinesTexts.joinToString("")
-                }
-            }
-            prefsHelper.saveString(PreferencesHelper.KEY_ROUTINES, routinesText)
-
-            // Menandai bahwa proses onboarding telah selesai.
+            // Kunci Rahasia: Set ini jadi TRUE biar besok2 gak perlu isi data lagi
             prefsHelper.saveBoolean(PreferencesHelper.KEY_ONBOARDING_COMPLETED, true)
 
-            // Navigasi ke halaman utama dan mengirim argumen untuk menampilkan Snackbar.
-            val bundle = bundleOf("show_snackbar" to true)
-            findNavController().navigate(R.id.action_profileSetupFragment_to_mainFragment, bundle)
+            // 4. SIMPAN KE FIREBASE (Syarat Nilai)
+            val userUntukCloud = User(
+                name = name,
+                age = age,
+                skinType = skinType,
+                preferences = preferences,
+                routines = routines
+            )
+            viewModel.saveUserProfile(userUntukCloud) // Kirim!
         }
+    }
+
+    private fun goToMainPage() {
+        val bundle = bundleOf("show_snackbar" to true)
+        findNavController().navigate(R.id.action_profileSetupFragment_to_mainFragment, bundle)
     }
 }
