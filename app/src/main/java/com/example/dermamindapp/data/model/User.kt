@@ -6,5 +6,6 @@ data class User(
     val age: String = "",
     val skinType: String = "",
     val preferences: String = "",
-    val routines: String = ""
+    val routines: String = "",
+    val photoUrl: String = ""
 )

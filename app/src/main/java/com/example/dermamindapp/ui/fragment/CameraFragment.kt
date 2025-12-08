@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory // Import Baru
 import android.graphics.ImageDecoder
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -41,7 +42,7 @@ import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-// Tambahkan implementasi SensorEventListener
+// Implementasi SensorEventListener untuk deteksi cahaya
 class CameraFragment : Fragment(), SensorEventListener {
 
     private val scope = CoroutineScope(Job() + Dispatchers.Main)
@@ -87,7 +88,7 @@ class CameraFragment : Fragment(), SensorEventListener {
         toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
 
         previewView = view.findViewById(R.id.cameraPreview)
-        tvLightWarning = view.findViewById(R.id.tvLightWarning) // Inisialisasi Text Warning
+        tvLightWarning = view.findViewById(R.id.tvLightWarning)
 
         val takePhotoButton: Button = view.findViewById(R.id.takePhotoButton)
         val uploadButton: Button = view.findViewById(R.id.uploadButton)
@@ -140,7 +141,7 @@ class CameraFragment : Fragment(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Tidak dipakai
+        // Tidak dipakai tapi wajib di-override
     }
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
@@ -226,19 +227,33 @@ class CameraFragment : Fragment(), SensorEventListener {
         }
     }
 
+    // [DIPERBAIKI] Fungsi ini sekarang aman dari warning deprecated
     private fun getBitmapFromUri(context: Context, uri: Uri): Bitmap? {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                // Untuk Android 9 (Pie) ke atas -> Gunakan ImageDecoder
                 val source = ImageDecoder.createSource(context.contentResolver, uri)
                 ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
                     decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                     decoder.isMutableRequired = true
                 }.copy(Bitmap.Config.ARGB_8888, true)
             } else {
-                MediaStore.Images.Media.getBitmap(context.contentResolver, uri).copy(Bitmap.Config.ARGB_8888, true)
+                // Untuk Android versi lama -> Gunakan BitmapFactory (Pengganti getBitmap)
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    BitmapFactory.decodeStream(inputStream)
+                }?.copy(Bitmap.Config.ARGB_8888, true)
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Gagal memuat bitmap", e)
             null
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Tutup analyzer untuk mencegah memory leak
+        if (::skinAnalyzer.isInitialized) {
+            skinAnalyzer.close()
         }
     }
 

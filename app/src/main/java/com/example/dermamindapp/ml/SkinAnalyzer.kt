@@ -25,7 +25,15 @@ class SkinAnalyzer(
     companion object {
         private const val INPUT_IMAGE_WIDTH = 224
         private const val INPUT_IMAGE_HEIGHT = 224
-        private const val NUM_CLASSES = 5
+
+        // DAFTAR KELAS (Wajib ada agar tidak error "Unresolved reference")
+        private val ALL_CLASSES = listOf(
+            "Jerawat_Aktif",
+            "Kulit_Berminyak",
+            "Kemerahan",
+            "Tekstur_Pori_pori",
+            "Kulit_Sehat"
+        )
 
         private val OPTIMAL_THRESHOLDS = mapOf(
             "Jerawat_Aktif" to 0.45f,
@@ -39,8 +47,8 @@ class SkinAnalyzer(
     init {
         val options = Interpreter.Options().apply {
             setNumThreads(4)
-
-            // FlexDelegate: optional, but recommended for SelectOps model
+            // FlexDelegate: Hanya aktifkan jika model benar-benar butuh (sering bikin crash jika dependency kurang)
+            // Jika masih crash, coba comment bagian try-catch ini
             try {
                 addDelegate(FlexDelegate())
             } catch (e: Exception) {
@@ -59,6 +67,14 @@ class SkinAnalyzer(
             .add(ResizeOp(INPUT_IMAGE_HEIGHT, INPUT_IMAGE_WIDTH, ResizeOp.ResizeMethod.BILINEAR))
             .add(NormalizeOp(127.5f, 127.5f))
             .build()
+
+        // LOG DEBUG: Cek output shape model yang sebenarnya
+        try {
+            val outputTensor = interpreter.getOutputTensor(0)
+            Log.d("SkinAnalyzer", "Model Output Shape: ${outputTensor.shape().contentToString()}")
+        } catch (e: Exception) {
+            Log.e("SkinAnalyzer", "Gagal membaca output tensor", e)
+        }
     }
 
     private fun loadModelFile(modelName: String): MappedByteBuffer {
@@ -78,15 +94,15 @@ class SkinAnalyzer(
         val probabilities = mutableMapOf<String, Float>()
         val diagnosis = mutableMapOf<String, Boolean>()
 
-        Log.d("SkinAnalyzer", "=== MEMULAI ANALISIS BARU ===")
+        Log.d("SkinAnalyzer", "=== HASIL ANALISIS ===")
 
-        ALL_CLASSES.forEachIndexed { i, className ->
-            val score = outputProbabilities[i]
+        // Gunakan zip agar aman jika jumlah kelas model beda dengan ALL_CLASSES
+        ALL_CLASSES.zip(outputProbabilities.toList()).forEach { (className, score) ->
             val threshold = OPTIMAL_THRESHOLDS[className] ?: 0.5f
             probabilities[className] = score
             diagnosis[className] = score > threshold
 
-            Log.d("SkinAnalyzer", "Hasil $className: $score (Threshold: $threshold)")
+            Log.d("SkinAnalyzer", "$className: $score (Threshold: $threshold)")
         }
 
         return SkinResult(probabilities, diagnosis)
@@ -99,14 +115,26 @@ class SkinAnalyzer(
 
         return try {
             val inputImage = preprocess(bitmap)
-            val output = Array(1) { FloatArray(NUM_CLASSES) }
+
+            // --- PERBAIKAN UTAMA (ANTI CRASH) ---
+            // Baca ukuran output langsung dari model, jangan hardcode '5'
+            val outputTensor = interpreter.getOutputTensor(0)
+            val outputShape = outputTensor.shape() // Misal [1, 5]
+            val outputSize = outputShape.last() // Ambil angka terakhir (5)
+
+            val output = Array(1) { FloatArray(outputSize) }
+
+            // Jalankan model
             interpreter.run(inputImage.buffer, output)
+
             postprocess(output[0])
         } catch (e: Exception) {
             Log.e("SkinAnalyzer", "Inference failed: ${e.message}")
-            throw RuntimeException("Gagal menjalankan analisis kulit.", e)
+            throw RuntimeException("Gagal menjalankan analisis kulit: ${e.message}", e)
         }
     }
 
-    fun close() = interpreter.close()
+    fun close() {
+        interpreter.close()
+    }
 }
