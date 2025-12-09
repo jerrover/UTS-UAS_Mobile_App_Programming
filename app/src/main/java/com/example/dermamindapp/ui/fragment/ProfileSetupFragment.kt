@@ -13,7 +13,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.PreferencesHelper
-import com.example.dermamindapp.data.model.User
+// Ganti import User ke UserProfile
+import com.example.dermamindapp.data.model.UserProfile
 import com.example.dermamindapp.ui.viewmodel.ProfileViewModel
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
@@ -42,28 +43,27 @@ class ProfileSetupFragment : Fragment() {
         val preferencesChipGroup: ChipGroup = view.findViewById(R.id.preferencesChipGroup)
         val routinesChipGroup: ChipGroup = view.findViewById(R.id.routinesChipGroup)
 
-        // Kita ambil username yang tadi disimpan saat Register
         val currentUsername = prefsHelper.getString(PreferencesHelper.KEY_USER_NAME) ?: ""
 
-        // Observer Status Update dari ViewModel
+        // Observer Status
         viewModel.statusMessage.observe(viewLifecycleOwner) { msg ->
-            if (msg == "Profil berhasil diperbarui!") {
-                // Kunci: Tandai onboarding selesai biar besok gak perlu isi ini lagi
+            if (msg == "Profil berhasil diperbarui" || msg == "Profil berhasil diperbarui!") {
                 prefsHelper.saveBoolean(PreferencesHelper.KEY_ONBOARDING_COMPLETED, true)
                 goToMainPage()
             } else if (msg != null) {
-                // Tampilkan error jika ada
-                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
-                viewModel.clearStatus()
+                // Jangan tampilkan Toast error jika msg berisi "Mengupload..." atau status progress
+                if (!msg.contains("Mengupload")) {
+                    Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                }
+                // viewModel.clearStatus() // Opsional: biarkan agar user bisa baca
             }
         }
 
         completeButton.setOnClickListener {
             val age = ageEditText.text.toString().trim()
 
-            // 1. Validasi Input
             if (age.isEmpty()) {
-                Toast.makeText(requireContext(), "Umur wajib diisi untuk analisis AI!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Umur wajib diisi!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -73,10 +73,8 @@ class ProfileSetupFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            // Ambil text dari Chip Tipe Kulit (Single)
             val skinType = view.findViewById<Chip>(selectedSkinTypeId).text.toString()
 
-            // Helper function ambil text dari Multi-Selection Chip
             fun getSelectedChips(group: ChipGroup): String {
                 val ids = group.checkedChipIds
                 if (ids.isEmpty()) return ""
@@ -95,31 +93,36 @@ class ProfileSetupFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            // 2. Simpan ke HP (SharedPreferences) - Biar aplikasi cepat baca data lokal
+            // Simpan Preference Lokal
             prefsHelper.saveString(PreferencesHelper.KEY_USER_AGE, age)
             prefsHelper.saveString(PreferencesHelper.KEY_SKIN_TYPE, skinType)
             prefsHelper.saveString(PreferencesHelper.KEY_PREFERENCES, preferences)
             prefsHelper.saveString(PreferencesHelper.KEY_ROUTINES, routines)
 
-            // 3. Simpan ke Firebase (Cloud) - Update user yang sudah ada
-            // Kita pakai ID = currentUsername karena itulah ID dokumen kita
-            val updatedUser = User(
+            // --- PERBAIKAN DISINI ---
+            // Gunakan UserProfile, bukan User
+            val updatedProfile = UserProfile(
                 id = currentUsername,
-                name = currentUsername, // Nama pakai username aja
+                name = currentUsername,
                 age = age,
                 skinType = skinType,
                 preferences = preferences,
-                routines = routines
+                routines = routines,
+                photoUrl = "" // Default kosong dulu
             )
 
-            // Panggil fungsi update, BUKAN saveUserProfile (karena save bikin baru)
-            viewModel.updateProfileData(updatedUser)
+            // Sekarang tipe datanya sudah cocok dengan ViewModel
+            viewModel.updateProfileData(updatedProfile)
         }
     }
 
     private fun goToMainPage() {
         val bundle = bundleOf("show_snackbar" to true)
-        // Pastikan ID action ini ada di navigation graph
-        findNavController().navigate(R.id.action_profileSetupFragment_to_mainFragment, bundle)
+        try {
+            findNavController().navigate(R.id.action_profileSetupFragment_to_mainFragment, bundle)
+        } catch (e: Exception) {
+            // Fallback jika action ID salah
+            Toast.makeText(requireContext(), "Navigasi ke Main gagal: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 }

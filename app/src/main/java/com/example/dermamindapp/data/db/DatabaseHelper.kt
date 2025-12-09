@@ -143,4 +143,24 @@ class DatabaseHelper(context: Context) {
             null
         }
     }
+
+    suspend fun updateUserPhoto(photoUrl: String?) {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return
+
+        try {
+            // Jika photoUrl null (dihapus), kita simpan string kosong ""
+            // agar field di database tidak hilang, cuma isinya kosong
+            val urlToSave = photoUrl ?: ""
+
+            firestore.collection("users").document(uid)
+                .update("photoUrl", urlToSave) // Update hanya field 'photoUrl'
+                .await()
+
+            Log.d(TAG, "Foto profil berhasil diupdate di Database: $urlToSave")
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal update foto di Database: ${e.message}")
+            throw e
+        }
+    }
 }

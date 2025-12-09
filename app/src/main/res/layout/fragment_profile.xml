@@ -14,13 +14,39 @@
         android:padding="24dp"
         android:gravity="center_horizontal">
 
-        <ImageView
-            android:id="@+id/ivProfilePicture"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:src="@drawable/ic_profile_avatar"
-            android:layout_marginTop="16dp"
-            android:contentDescription="Profile Picture"/>
+        <RelativeLayout
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginTop="16dp">
+
+            <ImageView
+                android:id="@+id/ivProfilePicture"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_profile_avatar"
+                android:scaleType="centerCrop"
+                android:contentDescription="Foto Profil" />
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_alignParentEnd="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginEnd="4dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/ic_launcher_background"
+                android:padding="6dp"
+                android:src="@android:drawable/ic_menu_edit"
+                app:tint="#000000" />
+            <ProgressBar
+                android:id="@+id/progressBarPhoto"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:indeterminateTint="@color/black"
+                android:visibility="gone" />
+        </RelativeLayout>
 
         <TextView
             android:id="@+id/profile_name"
