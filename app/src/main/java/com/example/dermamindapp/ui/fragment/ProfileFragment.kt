@@ -13,6 +13,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.NavOptions
+import androidx.navigation.findNavController
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.model.User
@@ -26,19 +28,17 @@ class ProfileFragment : Fragment() {
     private lateinit var viewModel: ProfileViewModel
     private lateinit var ivProfilePicture: ImageView
     private lateinit var tvUserName: TextView
-    private lateinit var btnEditProfile: Button // Tombol Edit
-
-    // Variabel untuk detail profil
     private lateinit var tvAge: TextView
     private lateinit var tvSkinType: TextView
     private lateinit var tvPreferences: TextView
     private lateinit var tvRoutines: TextView
+    private lateinit var btnEditProfile: Button
 
-    // Launcher untuk memilih gambar dari galeri
+    private lateinit var btnLogout: Button
+    private lateinit var btnDeleteAccount: Button
+
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            viewModel.uploadProfilePicture(it)
-        }
+        // Placeholder upload
     }
 
     override fun onCreateView(
@@ -53,19 +53,17 @@ class ProfileFragment : Fragment() {
 
         viewModel = ViewModelProvider(this)[ProfileViewModel::class.java]
 
-        // 1. Inisialisasi View
         ivProfilePicture = view.findViewById(R.id.ivProfilePicture)
         tvUserName = view.findViewById(R.id.profile_name)
         tvAge = view.findViewById(R.id.profile_age)
-
-        // Pastikan ID ini sesuai dengan yang ada di fragment_profile.xml
         tvSkinType = view.findViewById(R.id.tvSkinTypeValue)
         tvPreferences = view.findViewById(R.id.tvPreferencesValue)
         tvRoutines = view.findViewById(R.id.tvRoutinesValue)
-
         btnEditProfile = view.findViewById(R.id.btnEditProfile)
 
-        // 2. Setup Tombol Edit
+        btnLogout = view.findViewById(R.id.btnLogout)
+        btnDeleteAccount = view.findViewById(R.id.btnDeleteAccount)
+
         btnEditProfile.setOnClickListener {
             val currentUser = viewModel.userProfile.value
             if (currentUser != null) {
@@ -75,7 +73,24 @@ class ProfileFragment : Fragment() {
             }
         }
 
-        // 3. Setup Ganti Foto
+        btnLogout.setOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Konfirmasi Logout")
+                .setMessage("Apakah Anda yakin ingin keluar?")
+                .setPositiveButton("Ya") { _, _ -> viewModel.logout() }
+                .setNegativeButton("Batal", null)
+                .show()
+        }
+
+        btnDeleteAccount.setOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Hapus Akun Permanen")
+                .setMessage("Tindakan ini tidak bisa dibatalkan. Yakin?")
+                .setPositiveButton("HAPUS") { _, _ -> viewModel.deleteAccount() }
+                .setNegativeButton("Batal", null)
+                .show()
+        }
+
         ivProfilePicture.setOnClickListener {
             pickImageLauncher.launch("image/*")
         }
@@ -87,8 +102,8 @@ class ProfileFragment : Fragment() {
     private fun setupObservers() {
         viewModel.userProfile.observe(viewLifecycleOwner) { profile ->
             if (profile != null) {
-                tvUserName.text = profile.name.ifEmpty { "Pengguna Baru" }
-                tvAge.text = if (profile.age.isNotEmpty()) "${profile.age} Tahun" else "Umur belum diatur"
+                tvUserName.text = profile.name.ifEmpty { "Pengguna" }
+                tvAge.text = if (profile.age.isNotEmpty()) "${profile.age} Tahun" else "-"
                 tvSkinType.text = profile.skinType.ifEmpty { "-" }
                 tvPreferences.text = profile.preferences.ifEmpty { "-" }
                 tvRoutines.text = profile.routines.ifEmpty { "-" }
@@ -109,63 +124,60 @@ class ProfileFragment : Fragment() {
                 viewModel.clearStatus()
             }
         }
+
+        // === PERBAIKAN DI SINI (LOGOUT ERROR) ===
+        viewModel.navigateToLogin.observe(viewLifecycleOwner) { navigate ->
+            if (navigate) {
+                // Kita hapus histori sampai 'mainFragment' saja, BUKAN 'app_nav'
+                val navOptions = NavOptions.Builder()
+                    .setPopUpTo(R.id.mainFragment, true) // Hapus Home dari stack
+                    .build()
+
+                try {
+                    // Gunakan Root NavController dari Activity agar bisa pindah antar modul (Main -> Login)
+                    requireActivity().findNavController(R.id.nav_host_fragment)
+                        .navigate(R.id.loginFragment, null, navOptions)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Navigasi error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+                viewModel.resetNavigate()
+            }
+        }
     }
 
-    // =========================================================================
-    // LOGIKA DIALOG EDIT PROFILE
-    // =========================================================================
     private fun showEditProfileDialog(user: User) {
-        // Inflate layout dialog_edit_profile.xml
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_profile, null)
 
-        // Init Views di dalam dialog
         val etName = dialogView.findViewById<TextInputEditText>(R.id.etEditName)
         val etAge = dialogView.findViewById<TextInputEditText>(R.id.etEditAge)
         val cgSkinType = dialogView.findViewById<ChipGroup>(R.id.cgSkinType)
         val cgPreferences = dialogView.findViewById<ChipGroup>(R.id.cgPreferences)
         val cgRoutines = dialogView.findViewById<ChipGroup>(R.id.cgRoutines)
 
-        // ---------------------------------------------------------------------
-        // 1. SET DATA LAMA KE INPUT (Pre-fill)
-        // ---------------------------------------------------------------------
         etName.setText(user.name)
         etAge.setText(user.age)
 
-        // Helper Function: Untuk mencentang chip secara otomatis berdasarkan string database
-        // Contoh: dataString = "Vegan, Alcohol-Free" -> Chip "Vegan" & "Alcohol-Free" dicentang
         fun setChipsFromText(chipGroup: ChipGroup, dataString: String) {
             if (dataString.isEmpty()) return
-            // Pisahkan string dengan koma, lalu hapus spasi berlebih
             val items = dataString.split(",").map { it.trim() }
-
             for (i in 0 until chipGroup.childCount) {
                 val view = chipGroup.getChildAt(i)
-                if (view is Chip) {
-                    // Jika teks chip ada di daftar items, maka centang
-                    if (items.contains(view.text.toString())) {
-                        view.isChecked = true
-                    }
+                if (view is Chip && items.contains(view.text.toString())) {
+                    view.isChecked = true
                 }
             }
         }
 
-        // Terapkan ke masing-masing kategori
         setChipsFromText(cgSkinType, user.skinType)
         setChipsFromText(cgPreferences, user.preferences)
         setChipsFromText(cgRoutines, user.routines)
 
-        // ---------------------------------------------------------------------
-        // 2. TAMPILKAN DIALOG & SIMPAN DATA
-        // ---------------------------------------------------------------------
         AlertDialog.Builder(requireContext())
             .setView(dialogView)
-            .setCancelable(false) // User wajib klik Simpan atau Batal
+            .setCancelable(false)
             .setPositiveButton("Simpan") { _, _ ->
-                // Ambil data text
-                val newName = etName.text.toString().trim()
                 val newAge = etAge.text.toString().trim()
 
-                // Helper Function: Ambil teks dari chip yang DIPILIH (Checked)
                 fun getSelectedChipsText(chipGroup: ChipGroup): String {
                     val selectedValues = mutableListOf<String>()
                     val checkedIds = chipGroup.checkedChipIds
@@ -173,25 +185,20 @@ class ProfileFragment : Fragment() {
                         val chip = chipGroup.findViewById<Chip>(id)
                         selectedValues.add(chip.text.toString())
                     }
-                    // Gabungkan jadi string, misal: "Pagi, Malam"
                     return selectedValues.joinToString(", ")
                 }
 
-                // Ambil data dari ChipGroups
                 val newSkinType = getSelectedChipsText(cgSkinType)
                 val newPreferences = getSelectedChipsText(cgPreferences)
-                val newRoutines = getSelectedChipsText(cgRoutines) // Sekarang support banyak pilihan
+                val newRoutines = getSelectedChipsText(cgRoutines)
 
-                // Buat object User baru
                 val updatedUser = user.copy(
-                    name = newName,
                     age = newAge,
                     skinType = newSkinType,
                     preferences = newPreferences,
                     routines = newRoutines
                 )
 
-                // Kirim ke ViewModel untuk disimpan ke Firebase
                 viewModel.updateProfileData(updatedUser)
             }
             .setNegativeButton("Batal", null)

@@ -127,4 +127,10 @@ dependencies {
 
     // Opsional: Logging Interceptor untuk melihat log API di Logcat
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Tambahkan ini untuk Login & Register
+    implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
+
+    // Pastikan Firestore juga ada (kalau belum)
+    implementation("com.google.firebase:firebase-firestore-ktx:24.10.2")
 }

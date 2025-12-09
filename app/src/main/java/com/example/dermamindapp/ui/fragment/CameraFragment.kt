@@ -44,7 +44,6 @@ import java.util.concurrent.Executors
 
 class CameraFragment : Fragment(), SensorEventListener {
 
-    // Scope untuk coroutine
     private val scope = CoroutineScope(Job() + Dispatchers.Main)
 
     private var imageCapture: ImageCapture? = null
@@ -52,7 +51,6 @@ class CameraFragment : Fragment(), SensorEventListener {
     private lateinit var skinAnalyzer: SkinAnalyzer
     private lateinit var previewView: PreviewView
 
-    // Variabel Sensor
     private lateinit var sensorManager: SensorManager
     private var lightSensor: Sensor? = null
     private lateinit var tvLightWarning: TextView
@@ -103,11 +101,9 @@ class CameraFragment : Fragment(), SensorEventListener {
             startCamera()
         }
 
-        // Inisialisasi Executor dan Analyzer di sini
         cameraExecutor = Executors.newSingleThreadExecutor()
         skinAnalyzer = SkinAnalyzer(requireContext())
 
-        // Setup Sensor Cahaya
         sensorManager = requireContext().getSystemService(Context.SENSOR_SERVICE) as SensorManager
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
 
@@ -137,9 +133,7 @@ class CameraFragment : Fragment(), SensorEventListener {
         }
     }
 
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Tidak dipakai
-    }
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(requireContext(), it) == PackageManager.PERMISSION_GRANTED
@@ -152,6 +146,8 @@ class CameraFragment : Fragment(), SensorEventListener {
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener({
+            if (!isAdded) return@addListener
+
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder()
                 .build()
@@ -213,11 +209,20 @@ class CameraFragment : Fragment(), SensorEventListener {
                 val detectedConditions = diagnosis.filter { it.value }.keys.joinToString(", ")
                 val resultString = if (detectedConditions.isEmpty()) "Kulit Sehat" else detectedConditions
 
+                // Persiapkan data
+                val bundle = Bundle().apply {
+                    putString("imageUri", uri.toString())
+                    putString("analysisResults", resultString)
+                }
+
+                // === PERBAIKAN DI SINI ===
+                // Kita gunakan ID HALAMAN TUJUAN (analysisResultFragment) langsung.
+                // Ini akan bypass error 'action_...' yang tidak ditemukan.
                 findNavController().navigate(
-                    CameraFragmentDirections.actionCameraFragmentToAnalysisResultFragment(
-                        uri.toString(), resultString
-                    )
+                    R.id.analysisResultFragment,
+                    bundle
                 )
+
             } catch (e: Exception) {
                 Log.e(TAG, "Analisis gagal", e)
                 Toast.makeText(requireContext(), "Analisis gagal: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -244,25 +249,14 @@ class CameraFragment : Fragment(), SensorEventListener {
         }
     }
 
-    // --- PERBAIKAN: Gunakan onDestroyView untuk membersihkan Resource View ---
     override fun onDestroyView() {
         super.onDestroyView()
-
-        // 1. Tutup SkinAnalyzer (PENTING untuk mencegah Memory Leak Native)
-        if (::skinAnalyzer.isInitialized) {
-            skinAnalyzer.close()
-        }
-
-        // 2. Matikan Executor Kamera
-        if (::cameraExecutor.isInitialized) {
-            cameraExecutor.shutdown()
-        }
+        if (::skinAnalyzer.isInitialized) skinAnalyzer.close()
+        if (::cameraExecutor.isInitialized) cameraExecutor.shutdown()
     }
 
-    // --- PERBAIKAN: Gunakan onDestroy untuk membersihkan Scope Fragment ---
     override fun onDestroy() {
         super.onDestroy()
-        // Batalkan semua coroutine yang berjalan
         scope.cancel()
     }
 

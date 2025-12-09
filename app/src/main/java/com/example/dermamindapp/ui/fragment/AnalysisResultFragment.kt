@@ -13,7 +13,7 @@ import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.findNavController
-import androidx.navigation.fragment.navArgs
+// import androidx.navigation.fragment.navArgs -> HAPUS INI
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.PreferencesHelper
@@ -27,7 +27,8 @@ class AnalysisResultFragment : Fragment() {
     }
 
     private lateinit var viewModel: AnalysisViewModel
-    private val args: AnalysisResultFragmentArgs by navArgs()
+    // private val args: AnalysisResultFragmentArgs by navArgs() -> HAPUS INI
+
     private lateinit var imageUri: String
     private lateinit var analysisResult: String
     private lateinit var prefsHelper: PreferencesHelper
@@ -42,17 +43,20 @@ class AnalysisResultFragment : Fragment() {
         prefsHelper = PreferencesHelper(requireContext())
         viewModel = ViewModelProvider(this)[AnalysisViewModel::class.java]
 
-        imageUri = args.imageUri
-        analysisResult = args.analysisResults
+        // [BARU] Ambil data manual dari Bundle (Pengganti navArgs)
+        imageUri = arguments?.getString("imageUri") ?: ""
+        analysisResult = arguments?.getString("analysisResults") ?: ""
 
         val analysisImageView: ImageView = view.findViewById(R.id.imagePlaceholder)
         val seeRecommendationsButton: Button = view.findViewById(R.id.recommendationsButton)
 
         // Load gambar
         try {
-            Glide.with(this)
-                .load(Uri.parse(imageUri))
-                .into(analysisImageView)
+            if (imageUri.isNotEmpty()) {
+                Glide.with(this)
+                    .load(Uri.parse(imageUri))
+                    .into(analysisImageView)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -86,8 +90,11 @@ class AnalysisResultFragment : Fragment() {
                 Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
                 try {
                     val bundle = bundleOf(ARG_DESTINATION_ID to R.id.productRecommendationFragment)
+
+                    // GANTI BARIS INI: Gunakan R.id.mainFragment langsung
                     requireActivity().findNavController(R.id.nav_host_fragment)
-                        .navigate(R.id.action_analysisResultFragment_to_mainFragment, bundle)
+                        .navigate(R.id.mainFragment, bundle)
+
                 } catch (e: Exception) {
                     Toast.makeText(requireContext(), "Navigasi gagal: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
@@ -118,6 +125,10 @@ class AnalysisResultFragment : Fragment() {
 
     private fun setupResultCards(view: View) {
         val cardLayout: ViewGroup = view.findViewById(R.id.analysisCards)
+
+        // Cek jika kosong
+        if (analysisResult.isEmpty()) return
+
         val resultsList = analysisResult.split(", ").map { it.trim() }
 
         val card1 = cardLayout.getChildAt(0) as? MaterialCardView
