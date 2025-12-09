@@ -129,4 +129,32 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
+    fun updateProfileData(updatedUser: User) {
+        val userId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
+        if (userId.isNullOrEmpty()) return
+
+        _isLoading.value = true
+        viewModelScope.launch {
+            try {
+                // Update data di Firestore
+                usersCollection.document(userId)
+                    .set(updatedUser) // set() akan menimpa/menggabungkan data jika ID sama
+                    .await()
+
+                // Simpan nama baru ke SharedPreferences juga agar konsisten
+                prefsHelper.saveString(PreferencesHelper.KEY_USER_NAME, updatedUser.name)
+
+                _statusMessage.value = "Profil berhasil diperbarui!"
+
+                // Update LiveData agar UI langsung berubah tanpa perlu reload
+                _userProfile.value = updatedUser
+
+            } catch (e: Exception) {
+                Log.e("ProfileViewModel", "Gagal update profil", e)
+                _statusMessage.value = "Gagal memperbarui profil."
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 }
