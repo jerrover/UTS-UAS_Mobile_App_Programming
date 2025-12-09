@@ -9,55 +9,50 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.example.dermamindapp.R
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.android.material.snackbar.Snackbar
 
-// Fragment utama yang berfungsi sebagai container untuk navigasi utama aplikasi
-// (Home, Journey, Products, Profile) menggunakan BottomNavigationView.
 class MainFragment : Fragment() {
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_main, container, false)
-
-        // Mendapatkan NavHostFragment yang merupakan container untuk fragment-fragment
-        // dalam grafik navigasi utama (main_nav).
-        val navHostFragment = childFragmentManager.findFragmentById(R.id.main_nav_host_fragment) as NavHostFragment
-        val navController = navHostFragment.navController
-
-        // Menghubungkan BottomNavigationView dengan NavController agar item menu
-        // dapat secara otomatis menangani navigasi antar fragment.
-        val bottomNav = view.findViewById<BottomNavigationView>(R.id.bottom_navigation)
-        bottomNav.setupWithNavController(navController)
-
-        // Mengecek apakah ada argumen destinasi yang dikirimkan, misalnya dari AnalysisResultFragment.
-        // Jika ada, item menu yang sesuai akan dipilih secara otomatis.
-        val destinationId = arguments?.getInt(AnalysisResultFragment.ARG_DESTINATION_ID, 0) ?: 0
-        if (destinationId != 0) {
-            bottomNav.selectedItemId = destinationId
-        }
-
-        // Listener kustom untuk menangani navigasi saat item menu dipilih.
-        // Ini memastikan navigasi terjadi sesuai dengan ID item menu.
-        bottomNav.setOnItemSelectedListener { item ->
-            navController.navigate(item.itemId)
-            true
-        }
-
-        return view
+        return inflater.inflate(R.layout.fragment_main, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Mengecek apakah ada argumen untuk menampilkan Snackbar,
-        // misalnya setelah profil berhasil disimpan.
-        val showSnackbar = arguments?.getBoolean("show_snackbar") ?: false
-        if (showSnackbar) {
-            Snackbar.make(view, getString(R.string.feedback_profile_saved), Snackbar.LENGTH_SHORT).show()
-            // Menghapus argumen setelah Snackbar ditampilkan agar tidak muncul lagi.
-            arguments?.remove("show_snackbar")
+        // 1. Inisialisasi Bottom Navigation
+        val bottomNav = view.findViewById<BottomNavigationView>(R.id.bottom_navigation)
+
+        // 2. Ambil NavController dari Inner Nav Host
+        val navHostFragment = childFragmentManager.findFragmentById(R.id.main_nav_host_fragment) as? NavHostFragment
+
+        if (navHostFragment != null) {
+            val navController = navHostFragment.navController
+
+            // Hubungkan BottomNav dengan NavController
+            bottomNav.setupWithNavController(navController)
+
+            // 3. LOGIKA VISIBILITAS NAVBAR
+            navController.addOnDestinationChangedListener { _, destination, _ ->
+                when (destination.id) {
+                    // DAFTAR HALAMAN FULL SCREEN (TANPA NAVBAR):
+                    R.id.cameraFragment,                // Kamera
+                    R.id.analysisResultFragment,        // <--- TAMBAHAN: Hasil Analisis
+                    R.id.skinDetailFragment,            // Detail Riwayat
+                    R.id.productRecommendationFragment, // Rekomendasi Produk
+                    R.id.productDetailsFragment,        // Detail Produk
+                    R.id.articleDetailFragment          // Baca Artikel
+                        -> {
+                        bottomNav.visibility = View.GONE
+                    }
+                    else -> {
+                        // Halaman Utama (Home, Journey, Profile) -> Navbar Muncul
+                        bottomNav.visibility = View.VISIBLE
+                    }
+                }
+            }
         }
     }
 }

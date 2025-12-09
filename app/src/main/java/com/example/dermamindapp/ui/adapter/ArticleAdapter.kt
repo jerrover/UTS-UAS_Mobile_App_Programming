@@ -5,51 +5,44 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.navigation.findNavController
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.model.Article
-import com.example.dermamindapp.ui.fragment.ArticlesFragmentDirections
 
-// Adapter untuk menampilkan daftar artikel dalam RecyclerView.
-class ArticleAdapter(private val articles: List<Article>) :
-    RecyclerView.Adapter<ArticleAdapter.ArticleViewHolder>() {
+// Menggunakan ListAdapter + Lambda onClick
+class ArticleAdapter(private val onClick: (Article) -> Unit) :
+    ListAdapter<Article, ArticleAdapter.ArticleViewHolder>(ArticleDiffCallback) {
 
-    // Membuat ViewHolder baru saat RecyclerView membutuhkannya.
+    object ArticleDiffCallback : DiffUtil.ItemCallback<Article>() {
+        override fun areItemsTheSame(oldItem: Article, newItem: Article) = oldItem.id == newItem.id
+        override fun areContentsTheSame(oldItem: Article, newItem: Article) = oldItem == newItem
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ArticleViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_article, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_article, parent, false)
         return ArticleViewHolder(view)
     }
 
-    // Menghubungkan data artikel pada posisi tertentu dengan ViewHolder.
     override fun onBindViewHolder(holder: ArticleViewHolder, position: Int) {
-        val article = articles[position]
-        holder.bind(article)
+        holder.bind(getItem(position))
     }
 
-    // Mengembalikan jumlah total item dalam daftar artikel.
-    override fun getItemCount(): Int = articles.size
-
-    // ViewHolder untuk setiap item artikel dalam RecyclerView.
     inner class ArticleViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val articleImage: ImageView = itemView.findViewById(R.id.articleImage)
         private val articleTitle: TextView = itemView.findViewById(R.id.articleTitle)
 
-        // Mengikat data artikel ke tampilan (UI) dalam item.
         fun bind(article: Article) {
             articleTitle.text = article.title
-            // Menggunakan Glide untuk memuat gambar dari URL ke ImageView.
             Glide.with(itemView.context)
                 .load(article.imageUrl)
+                .placeholder(R.drawable.ic_article)
                 .into(articleImage)
 
-            // Menangani klik pada item untuk navigasi ke halaman detail artikel.
-            itemView.setOnClickListener {
-                val action = ArticlesFragmentDirections.actionArticlesFragmentToArticleDetailFragment(article)
-                it.findNavController().navigate(action)
-            }
+            // Panggil aksi klik ke Fragment
+            itemView.setOnClickListener { onClick(article) }
         }
     }
 }
