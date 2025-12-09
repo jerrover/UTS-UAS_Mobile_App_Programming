@@ -1,4 +1,3 @@
-// File: src/main/java/com/example/dermamindapp/data/db/DatabaseHelper.kt
 package com.example.dermamindapp.data.db
 
 import android.content.Context
@@ -6,72 +5,114 @@ import android.util.Log
 import com.example.dermamindapp.data.PreferencesHelper
 import com.example.dermamindapp.data.model.SkinAnalysis
 import com.example.dermamindapp.data.model.UserProfile
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
 
 class DatabaseHelper(context: Context) {
 
+    private val TAG = "DB_HELPER_DEBUG"
     private val firestore = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
     private val prefsHelper = PreferencesHelper(context)
-    private val userId: String
 
-    init {
-        // 1. Cek apakah ID sudah ada dengan Key yang benar
-        var id = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
+    // --- FUNGSI PENTING: Selalu cek ID terbaru (Dinamis) ---
+    private fun getCurrentUserId(): String {
+        // 1. Prioritas Utama: Username yang disimpan di HP saat Login
+        val storedId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
 
-        // 2. Jika belum ada (User Baru), buat ID dan simpan
-        if (id.isNullOrEmpty()) {
-            id = UUID.randomUUID().toString()
-            prefsHelper.saveString(PreferencesHelper.KEY_USER_ID, id)
-            Log.d("DatabaseHelper", "New User ID Generated: $id")
+        if (!storedId.isNullOrEmpty()) {
+            Log.d(TAG, "Menggunakan ID dari HP (Username): $storedId")
+            return storedId
         }
 
-        // 3. Set variabel global userId
-        userId = id!!
-    }
+        // 2. Fallback: Cek Firebase Auth (kalau ada)
+        val authUser = auth.currentUser
+        if (authUser != null) {
+            Log.d(TAG, "Menggunakan UID Firebase: ${authUser.uid}")
+            return authUser.uid
+        }
 
-    // References Path Firestore
-    private val analysisCollection = firestore.collection("users").document(userId).collection("skin_analyses")
-    private val userDocRef = firestore.collection("users").document(userId)
+        Log.e(TAG, "GAWAT! ID User Kosong. Data tidak akan tersimpan.")
+        return ""
+    }
 
     // --- FITUR 1: RIWAYAT ANALISIS ---
 
     suspend fun addAnalysis(analysis: SkinAnalysis) {
+        val uid = getCurrentUserId()
+
+        if (uid.isEmpty()) {
+            throw Exception("Gagal: User belum login.")
+        }
+
         try {
-            analysis.userId = userId
-            val docRef = analysisCollection.document()
-            analysis.id = docRef.id // Generate ID dokumen Firebase
+            Log.d(TAG, "Menyimpan data untuk User: $uid")
+
+            // Set pemilik data
+            analysis.userId = uid
+
+            // Path: users/{username}/skin_analyses
+            // JANGAN pakai variabel global, buat path baru setiap kali simpan
+            val docRef = firestore.collection("users").document(uid).collection("skin_analyses").document()
+
+            analysis.id = docRef.id
             docRef.set(analysis).await()
+
+            Log.d(TAG, "SUKSES SIMPAN! Cek di Firestore: users/$uid/skin_analyses/${docRef.id}")
+
         } catch (e: Exception) {
+            Log.e(TAG, "Error Simpan: ${e.message}")
             throw e
         }
     }
 
     suspend fun getAllAnalyses(): List<SkinAnalysis> {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return emptyList()
+
         return try {
-            val snapshot = analysisCollection
+            Log.d(TAG, "Mengambil data dari: users/$uid/skin_analyses")
+            val snapshot = firestore.collection("users").document(uid)
+                .collection("skin_analyses")
                 .orderBy("date", Query.Direction.DESCENDING)
                 .get()
                 .await()
+            Log.d(TAG, "Jumlah data ditemukan: ${snapshot.size()}")
             snapshot.toObjects(SkinAnalysis::class.java)
         } catch (e: Exception) {
+            Log.e(TAG, "Error Load: ${e.message}")
             emptyList()
         }
     }
 
-    suspend fun deleteAnalysis(id: String) {
+    suspend fun deleteAnalysis(analysisId: String) {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return
+
         try {
-            analysisCollection.document(id).delete().await()
+            firestore.collection("users").document(uid)
+                .collection("skin_analyses")
+                .document(analysisId)
+                .delete()
+                .await()
+            Log.d(TAG, "Data $analysisId berhasil dihapus")
         } catch (e: Exception) {
             throw e
         }
     }
 
-    suspend fun updateNotes(id: String, notes: String) {
+    suspend fun updateNotes(analysisId: String, notes: String) {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return
+
         try {
-            analysisCollection.document(id).update("notes", notes).await()
+            firestore.collection("users").document(uid)
+                .collection("skin_analyses")
+                .document(analysisId)
+                .update("notes", notes)
+                .await()
         } catch (e: Exception) {
             throw e
         }
@@ -80,23 +121,26 @@ class DatabaseHelper(context: Context) {
     // --- FITUR 2: USER PROFILE ---
 
     suspend fun saveUserProfile(userProfile: UserProfile) {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return
+
         try {
-            // Pastikan ID di objek sama dengan ID sistem
-            val fixedProfile = userProfile.copy(id = userId)
-            userDocRef.set(fixedProfile).await()
+            val fixedProfile = userProfile.copy(id = uid)
+            firestore.collection("users").document(uid).set(fixedProfile).await()
         } catch (e: Exception) {
             throw e
         }
     }
 
     suspend fun getUserProfile(): UserProfile? {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return null
+
         return try {
-            val snapshot = userDocRef.get().await()
+            val snapshot = firestore.collection("users").document(uid).get().await()
             snapshot.toObject(UserProfile::class.java)
         } catch (e: Exception) {
             null
         }
     }
-
-    fun getCurrentUserId(): String = userId
 }

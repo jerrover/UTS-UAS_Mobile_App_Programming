@@ -133,4 +133,5 @@ dependencies {
 
     // Pastikan Firestore juga ada (kalau belum)
     implementation("com.google.firebase:firebase-firestore-ktx:24.10.2")
+
 }

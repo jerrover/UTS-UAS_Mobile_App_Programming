@@ -16,9 +16,9 @@ import kotlinx.coroutines.launch
 
 class AnalysisViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val TAG = "ANALYSIS_DEBUG"
     private val dbHelper = DatabaseHelper(application)
 
-    // Status: Loading, Sukses, Gagal
     private val _saveStatus = MutableLiveData<Boolean?>()
     val saveStatus: LiveData<Boolean?> = _saveStatus
 
@@ -28,40 +28,40 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
     private val _statusMessage = MutableLiveData<String?>()
     val statusMessage: LiveData<String?> = _statusMessage
 
-    // Fungsi BARU: Upload gambar dulu, baru simpan data
     fun uploadAndSaveAnalysis(localUriString: String, result: String, userId: String) {
+        Log.d(TAG, "Proses dimulai untuk User ID: $userId")
         _isLoading.value = true
         _statusMessage.value = "Mengupload foto..."
 
         val uri = Uri.parse(localUriString)
 
         MediaManager.get().upload(uri)
-            .option("folder", "skin_journey") // Simpan di folder khusus history
+            .option("folder", "skin_journey")
             .option("resource_type", "image")
             .callback(object : UploadCallback {
-                override fun onStart(requestId: String) {}
+                override fun onStart(requestId: String) {
+                    Log.d(TAG, "Upload Cloudinary dimulai...")
+                }
 
                 override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
 
                 override fun onSuccess(requestId: String, resultData: Map<*, *>) {
-                    // 1. Upload Berhasil, Ambil URL Publik
                     val remoteUrl = resultData["secure_url"] as String
-                    Log.d("Cloudinary", "Upload Sukses: $remoteUrl")
+                    Log.d(TAG, "Upload SUKSES! URL: $remoteUrl")
 
-                    // 2. Buat Objek Data dengan URL Cloudinary
                     val analysis = SkinAnalysis(
                         userId = userId,
                         date = System.currentTimeMillis(),
-                        imageUri = remoteUrl, // Simpan URL Cloud, bukan lokal!
+                        imageUri = remoteUrl,
                         result = result,
                         notes = ""
                     )
 
-                    // 3. Simpan ke Firestore Database
                     saveToFirestore(analysis)
                 }
 
                 override fun onError(requestId: String, error: ErrorInfo) {
+                    Log.e(TAG, "Upload GAGAL: ${error.description}")
                     _isLoading.postValue(false)
                     _statusMessage.postValue("Gagal upload gambar: ${error.description}")
                     _saveStatus.postValue(false)
@@ -73,12 +73,15 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun saveToFirestore(analysis: SkinAnalysis) {
+        Log.d(TAG, "Mencoba simpan data ke Database...")
         viewModelScope.launch {
             try {
                 dbHelper.addAnalysis(analysis)
-                _saveStatus.value = true // Sukses total
+                Log.d(TAG, "Simpan Database BERHASIL!")
+                _saveStatus.value = true
                 _statusMessage.value = "Berhasil disimpan!"
             } catch (e: Exception) {
+                Log.e(TAG, "Simpan Database GAGAL: ${e.message}")
                 _saveStatus.value = false
                 _statusMessage.value = "Gagal simpan database: ${e.message}"
             } finally {

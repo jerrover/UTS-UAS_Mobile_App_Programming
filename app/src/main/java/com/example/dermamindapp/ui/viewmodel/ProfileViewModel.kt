@@ -1,11 +1,16 @@
 package com.example.dermamindapp.ui.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+// Import Cloudinary (Pastikan library sudah ada di build.gradle)
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import com.example.dermamindapp.data.PreferencesHelper
 import com.example.dermamindapp.data.model.User
 import com.google.firebase.auth.FirebaseAuth
@@ -32,31 +37,25 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val _navigateToLogin = MutableLiveData<Boolean>()
     val navigateToLogin: LiveData<Boolean> = _navigateToLogin
 
+    // --- LOAD PROFILE ---
     fun loadProfile() {
-        // PERBAIKAN DISINI:
-        // Prioritaskan ambil ID dari Username yang tersimpan di HP (karena Register pakai Username)
-        // Jangan pakai auth.currentUser.uid dulu karena itu beda dengan Username
         val storedUsername = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
-
         if (storedUsername.isNullOrEmpty()) {
-            _statusMessage.value = "User ID (Username) tidak ditemukan di HP."
+            _statusMessage.value = "User ID tidak ditemukan di HP."
             return
         }
 
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                // Cari dokumen yang ID-nya adalah Username
                 val document = usersCollection.document(storedUsername).get().await()
-
                 if (document.exists()) {
                     val user = document.toObject(User::class.java)
                     _userProfile.value = user
                 } else {
-                    _statusMessage.value = "Profil '$storedUsername' tidak ditemukan di server."
+                    _statusMessage.value = "Profil tidak ditemukan."
                 }
             } catch (e: Exception) {
-                Log.e("ProfileViewModel", "Gagal load profile", e)
                 _statusMessage.value = "Gagal memuat profil: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -64,68 +63,86 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun logout() {
-        try {
-            auth.signOut()
-            prefsHelper.clear()
-            _navigateToLogin.value = true
-        } catch (e: Exception) {
-            _statusMessage.value = "Gagal logout: ${e.message}"
-        }
-    }
+    // --- UPLOAD FOTO (VERSI CLOUDINARY) ---
+    fun uploadProfilePicture(imageUri: Uri) {
+        val currentUser = _userProfile.value
+        // Ambil username sebagai ID unik
+        val username = currentUser?.id ?: prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
 
-    fun deleteAccount() {
-        // Ambil ID dokumen (Username)
-        val storedUsername = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
-        val userAuth = auth.currentUser
-
-        if (storedUsername == null) {
-            _statusMessage.value = "Gagal: Data user tidak ditemukan."
+        if (username.isNullOrEmpty()) {
+            _statusMessage.value = "Gagal: User ID tidak ditemukan."
             return
         }
 
         _isLoading.value = true
+        _statusMessage.value = "Mengupload ke Cloudinary..."
+
+        // 1. Upload ke Cloudinary
+        // Menggunakan "public_id" yang sama agar foto lama otomatis tertimpa (Hemat storage!)
+        MediaManager.get().upload(imageUri)
+            .option("public_id", "profile_$username")
+            .option("folder", "dermamind_profiles") // Folder di Cloudinary
+            .option("resource_type", "image")
+            .callback(object : UploadCallback {
+                override fun onStart(requestId: String) {
+                    // Upload dimulai
+                }
+
+                override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {
+                    // Bisa update progress bar disini jika mau
+                }
+
+                override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                    // 2. SUKSES! Ambil URL HTTPS yang benar
+                    val secureUrl = resultData["secure_url"] as String
+                    Log.d("Cloudinary", "Upload Sukses: $secureUrl")
+
+                    // 3. Simpan URL tersebut ke Firestore
+                    savePhotoUrlToDatabase(username, secureUrl)
+                }
+
+                override fun onError(requestId: String, error: ErrorInfo) {
+                    _isLoading.postValue(false)
+                    _statusMessage.postValue("Gagal upload: ${error.description}")
+                    Log.e("Cloudinary", "Error: ${error.description}")
+                }
+
+                override fun onReschedule(requestId: String, error: ErrorInfo) {}
+            })
+            .dispatch()
+    }
+
+    private fun savePhotoUrlToDatabase(username: String, url: String) {
         viewModelScope.launch {
             try {
-                // 1. Hapus data di Firestore (Pakai Username)
-                usersCollection.document(storedUsername).delete().await()
+                // Update kolom 'photoUrl' di Firestore
+                usersCollection.document(username).update("photoUrl", url).await()
 
-                // 2. Hapus User Login (Auth)
-                userAuth?.delete()?.await()
+                // Update tampilan di aplikasi secara langsung (biar user lihat perubahannya)
+                val updatedUser = _userProfile.value?.copy(photoUrl = url)
+                    ?: User(id = username, photoUrl = url)
 
-                // 3. Bersihkan Lokal
-                prefsHelper.clear()
-
-                _statusMessage.value = "Akun berhasil dihapus."
-                _navigateToLogin.value = true
+                _userProfile.value = updatedUser
+                _statusMessage.value = "Foto profil berhasil diperbarui!"
 
             } catch (e: Exception) {
-                Log.e("ProfileViewModel", "Gagal hapus akun", e)
-                _statusMessage.value = "Gagal hapus akun. Coba login ulang dulu."
+                _statusMessage.value = "Gagal simpan URL ke database: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
+    // --- UPDATE DATA LAINNYA ---
     fun updateProfileData(updatedUser: User) {
-        // Pastikan ID dokumennya adalah Username yang benar
         val storedUsername = prefsHelper.getString(PreferencesHelper.KEY_USER_ID) ?: updatedUser.id
-
-        if (storedUsername.isEmpty()) {
-            _statusMessage.value = "Error: Username hilang."
-            return
-        }
+        if (storedUsername.isEmpty()) return
 
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                // Pastikan user object punya ID yang benar sebelum dikirim
                 val finalUser = updatedUser.copy(id = storedUsername)
-
-                usersCollection.document(storedUsername)
-                    .set(finalUser)
-                    .await()
+                usersCollection.document(storedUsername).set(finalUser).await()
 
                 prefsHelper.saveString(PreferencesHelper.KEY_USER_NAME, finalUser.name)
                 prefsHelper.saveString(PreferencesHelper.KEY_USER_AGE, finalUser.age)
@@ -135,21 +152,39 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
                 _statusMessage.value = "Profil berhasil diperbarui!"
                 _userProfile.value = finalUser
-
             } catch (e: Exception) {
-                Log.e("ProfileViewModel", "Gagal update profil", e)
-                _statusMessage.value = "Gagal memperbarui profil."
+                _statusMessage.value = "Gagal update: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    fun clearStatus() {
-        _statusMessage.value = null
+    // --- LOGOUT & DELETE ---
+    fun logout() {
+        auth.signOut()
+        prefsHelper.clear()
+        _navigateToLogin.value = true
     }
 
-    fun resetNavigate() {
-        _navigateToLogin.value = false
+    fun deleteAccount() {
+        val storedUsername = prefsHelper.getString(PreferencesHelper.KEY_USER_ID) ?: return
+        _isLoading.value = true
+        viewModelScope.launch {
+            try {
+                usersCollection.document(storedUsername).delete().await()
+                auth.currentUser?.delete()?.await()
+                prefsHelper.clear()
+                _statusMessage.value = "Akun dihapus."
+                _navigateToLogin.value = true
+            } catch (e: Exception) {
+                _statusMessage.value = "Gagal hapus akun."
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
+
+    fun clearStatus() { _statusMessage.value = null }
+    fun resetNavigate() { _navigateToLogin.value = false }
 }
