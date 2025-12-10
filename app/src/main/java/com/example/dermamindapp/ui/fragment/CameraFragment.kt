@@ -37,6 +37,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.dermamindapp.R
 import com.example.dermamindapp.ml.SkinAnalyzer
 import kotlinx.coroutines.*
+import org.json.JSONObject // Pastikan ini di-import!
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -205,19 +206,18 @@ class CameraFragment : Fragment(), SensorEventListener {
                 val bitmap = withContext(Dispatchers.IO) { getBitmapFromUri(requireContext(), uri) }
                 if (bitmap == null) return@launch
 
+                // 1. Ambil probabilitas asli dari AI
                 val (probabilities, diagnosis) = withContext(Dispatchers.IO) { skinAnalyzer.analyze(bitmap) }
-                val detectedConditions = diagnosis.filter { it.value }.keys.joinToString(", ")
-                val resultString = if (detectedConditions.isEmpty()) "Kulit Sehat" else detectedConditions
 
-                // Persiapkan data
+                // 2. Ubah Map menjadi JSON String
+                // Contoh output: {"Jerawat_Aktif":0.8, "Kulit_Sehat":0.1, ...}
+                val jsonScores = JSONObject(probabilities as Map<*, *>).toString()
+
                 val bundle = Bundle().apply {
                     putString("imageUri", uri.toString())
-                    putString("analysisResults", resultString)
+                    putString("analysisResults", jsonScores) // Kirim JSON!
                 }
 
-                // === PERBAIKAN DI SINI ===
-                // Kita gunakan ID HALAMAN TUJUAN (analysisResultFragment) langsung.
-                // Ini akan bypass error 'action_...' yang tidak ditemukan.
                 findNavController().navigate(
                     R.id.analysisResultFragment,
                     bundle
