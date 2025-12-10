@@ -6,6 +6,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.dermamindapp.data.db.DatabaseHelper
+import com.example.dermamindapp.data.model.Product
 import com.example.dermamindapp.data.model.SkinAnalysis
 import kotlinx.coroutines.launch
 
@@ -22,18 +23,17 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
     private val _statusMessage = MutableLiveData<String?>()
     val statusMessage: LiveData<String?> = _statusMessage
 
-    // Variabel untuk menyimpan ID User saat ini (Opsional, tapi bagus untuk refresh)
+    // Variabel untuk menyimpan ID User saat ini
     private var currentUserId: String = ""
 
-    // Fungsi Load Data
+    // --- FUNGSI LOAD DATA ---
     fun loadAnalyses(userId: String) {
         this.currentUserId = userId
 
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // PERBAIKAN DI SINI:
-                // Hapus parameter 'userId'. DatabaseHelper sudah tahu ID-nya dari internal init.
+                // Mengambil semua data analisis dari database
                 val list = dbHelper.getAllAnalyses()
                 _analyses.value = list
             } catch (e: Exception) {
@@ -45,13 +45,14 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // --- FUNGSI DELETE ---
     fun deleteAnalysis(id: String) {
         viewModelScope.launch {
             try {
                 dbHelper.deleteAnalysis(id)
                 _statusMessage.value = "Riwayat berhasil dihapus"
 
-                // Refresh data setelah hapus
+                // Refresh data setelah hapus agar list terupdate
                 loadAnalyses(currentUserId)
             } catch (e: Exception) {
                 _statusMessage.value = "Gagal menghapus: ${e.message}"
@@ -59,6 +60,7 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // --- FUNGSI UPDATE NOTES ---
     fun updateNotes(id: String, notes: String) {
         viewModelScope.launch {
             try {
@@ -73,6 +75,24 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // --- FUNGSI BARU: UPDATE SKINCARE ROUTINE (INI YANG HILANG) ---
+    fun updateSkincareRoutine(analysisId: String, products: List<Product>) {
+        viewModelScope.launch {
+            try {
+                // Memanggil fungsi di DatabaseHelper
+                dbHelper.updateAnalysisProducts(analysisId, products)
+
+                _statusMessage.value = "Skincare routine berhasil disimpan!"
+
+                // Refresh data agar UI sinkron
+                loadAnalyses(currentUserId)
+            } catch (e: Exception) {
+                _statusMessage.value = "Gagal simpan routine: ${e.message}"
+            }
+        }
+    }
+
+    // --- UTILS ---
     fun clearStatusMessage() {
         _statusMessage.value = null
     }

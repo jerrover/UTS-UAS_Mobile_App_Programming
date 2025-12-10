@@ -116,6 +116,35 @@
             app:destination="@id/mainFragment"
             app:popUpTo="@id/mainFragment"
             app:popUpToInclusive="false"/>
+
+        <action
+            android:id="@+id/action_analysisResultFragment_to_analysisRecommendationFragment"
+            app:destination="@id/analysisRecommendationFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/analysisRecommendationFragment"
+        android:name="com.example.dermamindapp.ui.fragment.AnalysisRecommendationFragment"
+        android:label="fragment_analysis_recommendation"
+        tools:layout="@layout/fragment_analysis_recommendation">
+
+        <argument
+            android:name="analysisResult"
+            app:argType="string" />
+
+        <action
+            android:id="@+id/action_analysisRecommendationFragment_to_productDetailsFragment"
+            app:destination="@id/productDetailsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/productDetailsFragment"
+        android:name="com.example.dermamindapp.ui.fragment.ProductDetailsFragment"
+        android:label="ProductDetailsFragment"
+        tools:layout="@layout/fragment_product_details">
+        <argument
+            android:name="product"
+            app:argType="com.example.dermamindapp.data.model.Product" />
     </fragment>
 
     <action

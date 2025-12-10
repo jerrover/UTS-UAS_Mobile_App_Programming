@@ -1,31 +1,31 @@
 package com.example.dermamindapp.ui.fragment
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider // Import ViewModel
-import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.dermamindapp.R
-import com.example.dermamindapp.data.model.SkinAnalysis
+import com.example.dermamindapp.data.PreferencesHelper
 import com.example.dermamindapp.ui.adapter.SkinJourneyAdapter
-import com.example.dermamindapp.ui.viewmodel.JourneyViewModel // Import ViewModel kita
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.example.dermamindapp.ui.viewmodel.JourneyViewModel
 import com.google.android.material.snackbar.Snackbar
 
 class SkinJourneyFragment : Fragment() {
 
-    private lateinit var viewModel: JourneyViewModel // Deklarasi ViewModel
+    private lateinit var viewModel: JourneyViewModel
     private lateinit var adapter: SkinJourneyAdapter
     private lateinit var recyclerView: RecyclerView
-    private lateinit var tvNoData: TextView
-    // Tambahkan ProgressBar di XML nanti (opsional), kalau ga ada hapus aja baris ini
-    // private lateinit var progressBar: ProgressBar
+    private lateinit var progressBar: ProgressBar
+    private lateinit var tvEmpty: TextView
+    private lateinit var prefsHelper: PreferencesHelper
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -33,85 +33,103 @@ class SkinJourneyFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_skin_journey, container, false)
 
-        // 1. Inisialisasi ViewModel
+        prefsHelper = PreferencesHelper(requireContext())
         viewModel = ViewModelProvider(this)[JourneyViewModel::class.java]
 
-        recyclerView = view.findViewById(R.id.recyclerView)
-        tvNoData = view.findViewById(R.id.tvNoData)
-
+        initViews(view)
         setupRecyclerView()
-        setupSwipeToDelete()
+        observeViewModel()
 
-        // 2. Observe (Pantau) Data dari ViewModel
-        // Setiap kali data di database berubah, kode di dalam { ... } ini akan jalan otomatis!
-        viewModel.analyses.observe(viewLifecycleOwner) { list ->
-            adapter.setData(list)
-
-            if (list.isEmpty()) {
-                recyclerView.visibility = View.GONE
-                tvNoData.visibility = View.VISIBLE
-            } else {
-                recyclerView.visibility = View.VISIBLE
-                tvNoData.visibility = View.GONE
-            }
+        val userId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
+        if (!userId.isNullOrEmpty()) {
+            viewModel.loadAnalyses(userId)
+        } else {
+            tvEmpty.text = "Please login to see your journey."
+            tvEmpty.visibility = View.VISIBLE
         }
 
         return view
     }
 
-    override fun onResume() {
-        super.onResume()
+    private fun initViews(view: View) {
+        // --- PERBAIKAN: ID DISAMAKAN DENGAN XML fragment_skin_journey.xml ---
 
-        // 1. Inisialisasi PreferencesHelper (karena belum ada di fragment ini)
-        val prefsHelper = com.example.dermamindapp.data.PreferencesHelper(requireContext())
-
-        // 2. Ambil ID User
-        val userId = prefsHelper.getString("KEY_FIREBASE_USER_ID") ?: ""
-
-        // 3. Suruh ViewModel ambil data milik ID tersebut
-        viewModel.loadAnalyses(userId)
+        recyclerView = view.findViewById(R.id.recyclerView) // XML: recyclerView
+        progressBar = view.findViewById(R.id.progressBar)   // XML: progressBar
+        tvEmpty = view.findViewById(R.id.tvNoData)          // XML: tvNoData
     }
 
     private fun setupRecyclerView() {
-        adapter = SkinJourneyAdapter(mutableListOf())
-        recyclerView.adapter = adapter
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-    }
-
-    private fun setupSwipeToDelete() {
-        val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
-            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
-                return false
-            }
-
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val position = viewHolder.bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    val analysisToDelete = adapter.getItemAt(position)
-                    showDeleteConfirmationDialog(analysisToDelete)
+        adapter = SkinJourneyAdapter(
+            emptyList(),
+            onItemClick = { analysis ->
+                // Navigasi ke Detail
+                // Gunakan try-catch agar tidak crash jika class Directions belum ter-generate
+                try {
+                    val action = SkinJourneyFragmentDirections
+                        .actionSkinJourneyFragmentToSkinDetailFragment(analysis)
+                    findNavController().navigate(action)
+                } catch (e: Exception) {
+                    // Fallback manual jika Directions error
+                    val bundle = Bundle().apply {
+                        putParcelable("currentAnalysis", analysis)
+                    }
+                    findNavController().navigate(R.id.action_skinJourneyFragment_to_skinDetailFragment, bundle)
+                }
+            },
+            onConsultClick = { analysis ->
+                Log.d("SkinJourney", "Klik Produk Cocok: ${analysis.result}")
+                // Navigasi ke Rekomendasi
+                try {
+                    val action = SkinJourneyFragmentDirections
+                        .actionSkinJourneyFragmentToAnalysisRecommendationFragment(analysis.result)
+                    findNavController().navigate(action)
+                } catch (e: Exception) {
+                    // Fallback manual
+                    val bundle = Bundle().apply {
+                        putString("analysisResult", analysis.result)
+                    }
+                    findNavController().navigate(
+                        R.id.action_skinJourneyFragment_to_analysisRecommendationFragment,
+                        bundle
+                    )
                 }
             }
-        }
-        val itemTouchHelper = ItemTouchHelper(itemTouchHelperCallback)
-        itemTouchHelper.attachToRecyclerView(recyclerView)
+        )
+
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.adapter = adapter
     }
 
-    private fun showDeleteConfirmationDialog(analysis: SkinAnalysis) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Hapus Riwayat")
-            .setMessage("Apakah Anda yakin ingin menghapus riwayat ini?")
-            .setNegativeButton("Batal") { dialog, _ ->
-                adapter.notifyDataSetChanged()
-                dialog.dismiss()
+    private fun observeViewModel() {
+        viewModel.analyses.observe(viewLifecycleOwner) { list ->
+            if (list.isNullOrEmpty()) {
+                tvEmpty.visibility = View.VISIBLE
+                recyclerView.visibility = View.GONE
+            } else {
+                tvEmpty.visibility = View.GONE
+                recyclerView.visibility = View.VISIBLE
+                adapter.updateData(list)
             }
-            .setPositiveButton("Hapus") { _, _ ->
-                // Panggil fungsi delete di ViewModel
-                viewModel.deleteAnalysis(analysis.id)
-                Snackbar.make(requireView(), "Riwayat dihapus", Snackbar.LENGTH_SHORT).show()
+        }
+
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        }
+
+        viewModel.statusMessage.observe(viewLifecycleOwner) { message ->
+            message?.let {
+                Snackbar.make(requireView(), it, Snackbar.LENGTH_SHORT).show()
+                viewModel.clearStatusMessage()
             }
-            .setOnCancelListener {
-                adapter.notifyDataSetChanged()
-            }
-            .show()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val userId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
+        if (!userId.isNullOrEmpty()) {
+            viewModel.loadAnalyses(userId)
+        }
     }
 }

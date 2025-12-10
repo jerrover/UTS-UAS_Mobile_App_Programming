@@ -3,6 +3,7 @@ package com.example.dermamindapp.data.db
 import android.content.Context
 import android.util.Log
 import com.example.dermamindapp.data.PreferencesHelper
+import com.example.dermamindapp.data.model.Product
 import com.example.dermamindapp.data.model.SkinAnalysis
 import com.example.dermamindapp.data.model.UserProfile
 import com.google.firebase.auth.FirebaseAuth
@@ -160,6 +161,24 @@ class DatabaseHelper(context: Context) {
             Log.d(TAG, "Foto profil berhasil diupdate di Database: $urlToSave")
         } catch (e: Exception) {
             Log.e(TAG, "Gagal update foto di Database: ${e.message}")
+            throw e
+        }
+    }
+
+    // --- FITUR UPDATE SKINCARE ROUTINE ---
+    suspend fun updateAnalysisProducts(analysisId: String, products: List<Product>) {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return
+
+        try {
+            firestore.collection("users").document(uid)
+                .collection("skin_analyses")
+                .document(analysisId)
+                .update("usedProducts", products) // Firestore otomatis meng-handle List object
+                .await()
+            Log.d(TAG, "Skincare routine berhasil diupdate untuk analisis: $analysisId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal update skincare routine: ${e.message}")
             throw e
         }
     }

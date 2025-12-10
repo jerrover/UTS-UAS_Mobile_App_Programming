@@ -25,6 +25,34 @@
     </fragment>
 
     <fragment
+        android:id="@+id/skinJourneyFragment"
+        android:name="com.example.dermamindapp.ui.fragment.SkinJourneyFragment"
+        android:label="SkinJourneyFragment"
+        tools:layout="@layout/fragment_skin_journey">
+
+        <action
+            android:id="@+id/action_skinJourneyFragment_to_skinDetailFragment"
+            app:destination="@id/skinDetailFragment" />
+
+        <action
+            android:id="@+id/action_skinJourneyFragment_to_analysisRecommendationFragment"
+            app:destination="@id/analysisRecommendationFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/analysisRecommendationFragment"
+        android:name="com.example.dermamindapp.ui.fragment.AnalysisRecommendationFragment"
+        android:label="fragment_analysis_recommendation"
+        tools:layout="@layout/fragment_analysis_recommendation">
+        <argument
+            android:name="analysisResult"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_analysisRecommendationFragment_to_productDetailsFragment"
+            app:destination="@id/productDetailsFragment" />
+    </fragment>
+
+    <fragment
         android:id="@+id/cameraFragment"
         android:name="com.example.dermamindapp.ui.fragment.CameraFragment"
         android:label="CameraFragment"
@@ -39,13 +67,8 @@
         android:name="com.example.dermamindapp.ui.fragment.AnalysisResultFragment"
         android:label="AnalysisResultFragment"
         tools:layout="@layout/fragment_analysis_result">
-        <argument
-            android:name="imageUri"
-            app:argType="string" />
-        <argument
-            android:name="analysisResults"
-            app:argType="string" />
-
+        <argument android:name="imageUri" app:argType="string" />
+        <argument android:name="analysisResults" app:argType="string" />
         <action
             android:id="@+id/action_analysisResultFragment_to_analysisRecommendationFragment"
             app:destination="@id/analysisRecommendationFragment"
@@ -54,51 +77,11 @@
     </fragment>
 
     <fragment
-        android:id="@+id/profileFragment"
-        android:name="com.example.dermamindapp.ui.fragment.ProfileFragment"
-        android:label="ProfileFragment"
-        tools:layout="@layout/fragment_profile" />
-
-    <fragment
-        android:id="@+id/skinJourneyFragment"
-        android:name="com.example.dermamindapp.ui.fragment.SkinJourneyFragment"
-        android:label="SkinJourneyFragment"
-        tools:layout="@layout/fragment_skin_journey">
-        <action
-            android:id="@+id/action_skinJourneyFragment_to_skinDetailFragment"
-            app:destination="@id/skinDetailFragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/analysisRecommendationFragment"
-        android:name="com.example.dermamindapp.ui.fragment.AnalysisRecommendationFragment"
-        android:label="AnalysisRecommendationFragment"
-        tools:layout="@layout/fragment_analysis_recommendation">
-
-        <argument
-            android:name="analysisResult"
-            app:argType="string" />
-
-        <action
-            android:id="@+id/action_analysisRecommendationFragment_to_productDetailsFragment"
-            app:destination="@id/productDetailsFragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/productRecommendationFragment"
-        android:name="com.example.dermamindapp.ui.fragment.ProductRecommendationFragment"
-        android:label="ProductRecommendationFragment"
-        tools:layout="@layout/fragment_product_recommendation">
-        <action
-            android:id="@+id/action_productRecommendationFragment_to_productDetailsFragment"
-            app:destination="@id/productDetailsFragment" />
-    </fragment>
-
-    <fragment
         android:id="@+id/skinDetailFragment"
         android:name="com.example.dermamindapp.ui.fragment.SkinDetailFragment"
         android:label="fragment_skin_detail"
         tools:layout="@layout/fragment_skin_detail">
+
         <argument
             android:name="currentAnalysis"
             app:argType="com.example.dermamindapp.data.model.SkinAnalysis" />
@@ -106,6 +89,18 @@
         <action
             android:id="@+id/action_skinDetailFragment_to_analysisRecommendationFragment"
             app:destination="@id/analysisRecommendationFragment" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/productRecommendationFragment"
+        android:name="com.example.dermamindapp.ui.fragment.ProductRecommendationFragment"
+        android:label="ProductRecommendationFragment"
+        tools:layout="@layout/fragment_product_recommendation">
+
+        <action
+            android:id="@+id/action_productRecommendationFragment_to_productDetailsFragment"
+            app:destination="@id/productDetailsFragment" />
     </fragment>
 
     <fragment
@@ -118,24 +113,8 @@
             app:argType="com.example.dermamindapp.data.model.Product" />
     </fragment>
 
-    <fragment
-        android:id="@+id/articlesFragment"
-        android:name="com.example.dermamindapp.ui.fragment.ArticlesFragment"
-        android:label="ArticlesFragment"
-        tools:layout="@layout/fragment_articles">
-        <action
-            android:id="@+id/action_articlesFragment_to_articleDetailFragment"
-            app:destination="@id/articleDetailFragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/articleDetailFragment"
-        android:name="com.example.dermamindapp.ui.fragment.ArticleDetailFragment"
-        android:label="ArticleDetailFragment"
-        tools:layout="@layout/fragment_article_detail">
-        <argument
-            android:name="article"
-            app:argType="com.example.dermamindapp.data.model.Article" />
-    </fragment>
+    <fragment android:id="@+id/profileFragment" android:name="com.example.dermamindapp.ui.fragment.ProfileFragment" tools:layout="@layout/fragment_profile" />
+    <fragment android:id="@+id/articlesFragment" android:name="com.example.dermamindapp.ui.fragment.ArticlesFragment" tools:layout="@layout/fragment_articles"><action android:id="@+id/action_articlesFragment_to_articleDetailFragment" app:destination="@id/articleDetailFragment" /></fragment>
+    <fragment android:id="@+id/articleDetailFragment" android:name="com.example.dermamindapp.ui.fragment.ArticleDetailFragment" tools:layout="@layout/fragment_article_detail"><argument android:name="article" app:argType="com.example.dermamindapp.data.model.Article" /></fragment>
 
 </navigation>

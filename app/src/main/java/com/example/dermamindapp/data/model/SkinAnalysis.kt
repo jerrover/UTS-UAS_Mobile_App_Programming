@@ -10,5 +10,6 @@ data class SkinAnalysis(
     val date: Long = 0L,
     val imageUri: String = "",
     val result: String = "",
-    var notes: String? = ""
+    var notes: String? = "",
+    var usedProducts: ArrayList<Product> = ArrayList()
 ) : Parcelable
