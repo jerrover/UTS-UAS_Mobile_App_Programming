@@ -54,26 +54,34 @@ class SkinDetailFragment : Fragment() {
         tvNotes = view.findViewById(R.id.tvNotesDetail)
         ivAnalysis = view.findViewById(R.id.ivAnalysisDetail)
 
-        // Button Deklarasi
         val btnEditNotes: MaterialButton = view.findViewById(R.id.btnEditNotes)
-        val btnRecommendation: MaterialButton = view.findViewById(R.id.btnRecommendation) // Tombol baru
+        val btnRecommendation: MaterialButton = view.findViewById(R.id.btnRecommendation)
 
         populateUI()
 
-        // 1. Logic Tombol Edit Notes (Tetap sama)
         btnEditNotes.setOnClickListener {
             showEditNotesDialog()
         }
 
-        // 2. Logic Tombol Rekomendasi (BARU)
+        // --- UPDATE TERPENTING ADA DI SINI ---
         btnRecommendation.setOnClickListener {
             val analysisResultString = args.currentAnalysis.result
 
-            // Pindah ke ProductRecommendationFragment bawa hasil analisisnya
-            val action = SkinDetailFragmentDirections
-                .actionSkinDetailFragmentToProductRecommendationFragment(analysisResultString)
-            findNavController().navigate(action)
+            // KITA ARAHKAN KE HALAMAN BARU (AnalysisRecommendationFragment)
+            // BUKAN KE PRODUCT RECOMMENDATION LAGI
+            try {
+                val action = SkinDetailFragmentDirections
+                    .actionSkinDetailFragmentToAnalysisRecommendationFragment(analysisResultString)
+                findNavController().navigate(action)
+            } catch (e: Exception) {
+                // Fallback jika belum rebuild
+                val bundle = Bundle().apply {
+                    putString("analysisResult", analysisResultString)
+                }
+                findNavController().navigate(R.id.action_skinDetailFragment_to_analysisRecommendationFragment, bundle)
+            }
         }
+        // -------------------------------------
 
         viewModel.statusMessage.observe(viewLifecycleOwner) { message ->
             message?.let {
@@ -88,13 +96,16 @@ class SkinDetailFragment : Fragment() {
         return view
     }
 
-    // ... (Sisa kode populateUI, showEditNotesDialog, deleteAnalysis biarkan sama seperti sebelumnya) ...
-
     private fun populateUI() {
         tvDate.text = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault()).format(Date(args.currentAnalysis.date))
         tvResult.text = args.currentAnalysis.result
         tvNotes.text = args.currentAnalysis.notes?.ifEmpty { "No notes added." }
-        Glide.with(this).load(args.currentAnalysis.imageUri).into(ivAnalysis)
+
+        try {
+            Glide.with(this).load(args.currentAnalysis.imageUri).into(ivAnalysis)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun showEditNotesDialog() {

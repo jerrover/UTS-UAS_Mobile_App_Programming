@@ -25,8 +25,6 @@ class AnalysisResultFragment : Fragment() {
     private lateinit var imageUri: String
     private lateinit var analysisResult: String
     private lateinit var prefsHelper: PreferencesHelper
-
-    // Tambahan variabel untuk Input Notes
     private lateinit var etNotes: TextInputEditText
 
     override fun onCreateView(
@@ -43,8 +41,8 @@ class AnalysisResultFragment : Fragment() {
 
         val analysisImageView: ImageView = view.findViewById(R.id.imagePlaceholder)
         val seeRecommendationsButton: Button = view.findViewById(R.id.recommendationsButton)
-        val retakeButton: Button = view.findViewById(R.id.btnRetake) // Tombol baru
-        etNotes = view.findViewById(R.id.etNotes) // Input baru
+        val retakeButton: Button = view.findViewById(R.id.btnRetake)
+        etNotes = view.findViewById(R.id.etNotes)
 
         // Load gambar
         try {
@@ -61,7 +59,6 @@ class AnalysisResultFragment : Fragment() {
 
         // 1. Logic Tombol Foto Ulang
         retakeButton.setOnClickListener {
-            // Kembali ke halaman sebelumnya (Kamera)
             findNavController().popBackStack()
         }
 
@@ -78,7 +75,7 @@ class AnalysisResultFragment : Fragment() {
     private fun setupObservers(saveButton: Button, retakeButton: Button) {
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             saveButton.isEnabled = !isLoading
-            retakeButton.isEnabled = !isLoading // Disable tombol retake saat loading
+            retakeButton.isEnabled = !isLoading
             saveButton.text = if (isLoading) "Mengupload..." else "Simpan & Rekomendasi"
         }
 
@@ -88,19 +85,27 @@ class AnalysisResultFragment : Fragment() {
             }
         }
 
+        // --- BAGIAN INI YANG DIPERBAIKI ---
         viewModel.saveStatus.observe(viewLifecycleOwner) { isSuccess ->
             if (isSuccess == true) {
                 Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
 
                 try {
+                    // KITA GUNAKAN CARA SAFE ARGS (Direkomendasikan)
+                    // Pastikan Anda sudah Rebuild Project agar class ini muncul
+                    val action = AnalysisResultFragmentDirections
+                        .actionAnalysisResultFragmentToAnalysisRecommendationFragment(analysisResult)
+                    findNavController().navigate(action)
+
+                } catch (e: Exception) {
+                    // Jika Safe Args error (karena belum rebuild), pakai cara manual sebagai cadangan:
                     val bundle = Bundle().apply {
                         putString("analysisResult", analysisResult)
                     }
-                    findNavController().navigate(R.id.productRecommendationFragment, bundle)
-                } catch (e: Exception) {
-                    Toast.makeText(requireContext(), "Gagal navigasi: ${e.message}", Toast.LENGTH_LONG).show()
-                    e.printStackTrace()
+                    // Pastikan ID ini ada di main_nav.xml (action yang baru dibuat)
+                    findNavController().navigate(R.id.action_analysisResultFragment_to_analysisRecommendationFragment, bundle)
                 }
+
                 viewModel.resetSaveStatus()
             }
         }
@@ -108,20 +113,17 @@ class AnalysisResultFragment : Fragment() {
 
     private fun saveAnalysisToCloud() {
         val currentUserId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
-        val notesText = etNotes.text.toString().trim() // Ambil teks notes
+        val notesText = etNotes.text.toString().trim()
 
         if (currentUserId.isNullOrEmpty()) {
-            // Logic retry ID (sama seperti sebelumnya)
             com.example.dermamindapp.data.db.DatabaseHelper(requireContext())
             val retryId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
             if (retryId.isNullOrEmpty()) {
                 Toast.makeText(requireContext(), "Error User ID. Silakan restart aplikasi.", Toast.LENGTH_LONG).show()
                 return
             }
-            // Kirim notes juga
             viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, retryId, notesText)
         } else {
-            // Kirim notes juga
             viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, currentUserId, notesText)
         }
     }

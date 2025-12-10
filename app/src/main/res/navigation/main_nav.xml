@@ -28,7 +28,11 @@
         android:id="@+id/cameraFragment"
         android:name="com.example.dermamindapp.ui.fragment.CameraFragment"
         android:label="CameraFragment"
-        tools:layout="@layout/fragment_camera" />
+        tools:layout="@layout/fragment_camera">
+        <action
+            android:id="@+id/action_cameraFragment_to_analysisResultFragment"
+            app:destination="@id/analysisResultFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/analysisResultFragment"
@@ -41,7 +45,14 @@
         <argument
             android:name="analysisResults"
             app:argType="string" />
+
+        <action
+            android:id="@+id/action_analysisResultFragment_to_analysisRecommendationFragment"
+            app:destination="@id/analysisRecommendationFragment"
+            app:popUpTo="@id/homeFragment"
+            app:popUpToInclusive="false" />
     </fragment>
+
     <fragment
         android:id="@+id/profileFragment"
         android:name="com.example.dermamindapp.ui.fragment.ProfileFragment"
@@ -59,17 +70,25 @@
     </fragment>
 
     <fragment
+        android:id="@+id/analysisRecommendationFragment"
+        android:name="com.example.dermamindapp.ui.fragment.AnalysisRecommendationFragment"
+        android:label="AnalysisRecommendationFragment"
+        tools:layout="@layout/fragment_analysis_recommendation">
+
+        <argument
+            android:name="analysisResult"
+            app:argType="string" />
+
+        <action
+            android:id="@+id/action_analysisRecommendationFragment_to_productDetailsFragment"
+            app:destination="@id/productDetailsFragment" />
+    </fragment>
+
+    <fragment
         android:id="@+id/productRecommendationFragment"
         android:name="com.example.dermamindapp.ui.fragment.ProductRecommendationFragment"
         android:label="ProductRecommendationFragment"
         tools:layout="@layout/fragment_product_recommendation">
-
-        <argument
-            android:name="analysisResult"
-            app:argType="string"
-            app:nullable="true"
-            android:defaultValue="@null" />
-
         <action
             android:id="@+id/action_productRecommendationFragment_to_productDetailsFragment"
             app:destination="@id/productDetailsFragment" />
@@ -85,8 +104,8 @@
             app:argType="com.example.dermamindapp.data.model.SkinAnalysis" />
 
         <action
-            android:id="@+id/action_skinDetailFragment_to_productRecommendationFragment"
-            app:destination="@id/productRecommendationFragment" />
+            android:id="@+id/action_skinDetailFragment_to_analysisRecommendationFragment"
+            app:destination="@id/analysisRecommendationFragment" />
     </fragment>
 
     <fragment

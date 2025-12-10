@@ -11,10 +11,11 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.dermamindapp.data.PreferencesHelper
+import com.example.dermamindapp.R
 import com.example.dermamindapp.databinding.FragmentProductRecommendationBinding
 import com.example.dermamindapp.ui.adapter.ProductAdapter
 import com.example.dermamindapp.ui.viewmodel.ProductViewModel
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.chip.Chip
 
 class ProductRecommendationFragment : Fragment() {
@@ -24,7 +25,6 @@ class ProductRecommendationFragment : Fragment() {
 
     private val viewModel: ProductViewModel by viewModels()
     private lateinit var adapter: ProductAdapter
-    private lateinit var prefsHelper: PreferencesHelper
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -37,72 +37,30 @@ class ProductRecommendationFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        prefsHelper = PreferencesHelper(requireContext())
+        // --- UPDATE: PAKSA NAVBAR MUNCUL ---
+        // Karena ini halaman katalog utama, navbar wajib ada.
+        toggleBottomNavigation(true)
+        // -----------------------------------
 
         setupRecyclerView()
         setupObservers()
         setupListeners()
 
-        // JALANKAN LOGIKA FILTER OTOMATIS
-        handleAutoFilter()
+        // Default: Muat semua produk
+        viewModel.filterBySuitability("Semua")
     }
 
-    private fun handleAutoFilter() {
-        // 1. Cek apakah ada kiriman data "analysisResult" dari halaman AnalysisResultFragment?
-        val analysisResultArgs = arguments?.getString("analysisResult")
-
-        if (!analysisResultArgs.isNullOrEmpty()) {
-            // JIKA ADA HASIL SCAN: Filter berdasarkan hasil scan
-            autoSelectFilter(analysisResultArgs)
-            binding.tvSubtitle.text = "Rekomendasi berdasarkan analisis: ${analysisResultArgs.replace("_", " ")}"
-        } else {
-            // JIKA TIDAK ADA SCAN: Ambil dari Profil User (Preferences)
-            val userProblems = prefsHelper.getString(PreferencesHelper.KEY_PREFERENCES) ?: ""
-            val userSkinType = prefsHelper.getString(PreferencesHelper.KEY_SKIN_TYPE) ?: ""
-
-            if (userProblems.isNotEmpty()) {
-                val firstProblem = userProblems.split(",")[0].trim()
-                autoSelectFilter(firstProblem)
-                binding.tvSubtitle.text = "Disarankan untukmu ($userSkinType - $firstProblem)"
-            } else if (userSkinType.isNotEmpty()) {
-                autoSelectFilter(userSkinType)
-                binding.tvSubtitle.text = "Disarankan untuk kulit $userSkinType"
-            }
-        }
-    }
-
-    private fun autoSelectFilter(keyword: String) {
-        // Reset dulu biar bersih
-        binding.chipGroupFilter.clearCheck()
-
-        // Logika pencocokan kata kunci dengan Filter Chip
-        when {
-            keyword.contains("Jerawat", true) || keyword.contains("Acne", true) -> {
-                binding.chipAcne.isChecked = true
-                viewModel.filterBySuitability("Acne")
-            }
-            keyword.contains("Kering", true) || keyword.contains("Dry", true) -> {
-                binding.chipDry.isChecked = true
-                viewModel.filterBySuitability("Dry")
-            }
-            keyword.contains("Minyak", true) || keyword.contains("Oily", true) || keyword.contains("Berminyak", true) -> {
-                binding.chipOily.isChecked = true
-                viewModel.filterBySuitability("Oily")
-            }
-            keyword.contains("Kusam", true) || keyword.contains("Dull", true) -> {
-                binding.chipDull.isChecked = true
-                viewModel.filterBySuitability("Dull")
-            }
-            else -> {
-                // Jika tidak ada Chip yang cocok, filter "Semua" tapi cari di text
-                viewModel.search(keyword)
-            }
+    // Fungsi helper untuk memastikan Navbar muncul
+    private fun toggleBottomNavigation(isVisible: Boolean) {
+        val bottomNav = requireActivity().findViewById<BottomNavigationView>(R.id.bottom_navigation)
+        if (bottomNav != null) {
+            bottomNav.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
     }
 
     private fun setupRecyclerView() {
         adapter = ProductAdapter(emptyList()) { product ->
-            // Navigasi ke Detail
+            // Navigasi ke Detail Produk
             val action = ProductRecommendationFragmentDirections
                 .actionProductRecommendationFragmentToProductDetailsFragment(product)
             findNavController().navigate(action)
@@ -126,12 +84,16 @@ class ProductRecommendationFragment : Fragment() {
     }
 
     private fun setupListeners() {
+        // 1. Search Bar Listener
         binding.etSearch.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) { viewModel.search(s.toString()) }
+            override fun afterTextChanged(s: Editable?) {
+                viewModel.search(s.toString())
+            }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
+        // 2. Filter Chip Listener
         binding.chipGroupFilter.setOnCheckedChangeListener { group, checkedId ->
             val chip = group.findViewById<Chip>(checkedId)
             if (chip != null) {

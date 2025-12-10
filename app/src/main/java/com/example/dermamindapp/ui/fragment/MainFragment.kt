@@ -38,6 +38,8 @@ class MainFragment : Fragment() {
             navController.addOnDestinationChangedListener { _, destination, _ ->
                 when (destination.id) {
                     // DAFTAR HALAMAN FULL SCREEN (TANPA NAVBAR):
+                    R.id.productRecommendationFragment, // Katalog Produk Umum (Tetap muncul navbar)
+                    R.id.articlesFragment,
                     R.id.cameraFragment,                // Kamera
                     R.id.analysisResultFragment,        // <--- TAMBAHAN: Hasil Analisis
                     R.id.skinDetailFragment,            // Detail Riwayat
