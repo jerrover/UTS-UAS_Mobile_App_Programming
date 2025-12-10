@@ -18,6 +18,7 @@ import com.example.dermamindapp.databinding.FragmentAnalysisRecommendationBindin
 import com.example.dermamindapp.ui.adapter.ProductAdapter
 import com.example.dermamindapp.ui.viewmodel.ProductViewModel
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.chip.Chip
 
 class AnalysisRecommendationFragment : Fragment() {
 
@@ -38,18 +39,16 @@ class AnalysisRecommendationFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 1. MATIKAN NAVBAR (Sesuai ID di XML Anda: bottom_navigation)
         toggleBottomNavigation(false)
-
         setupRecyclerView()
         setupObservers()
 
         val analysisResult = arguments?.getString("analysisResult") ?: ""
         setupToolbar()
-        loadRecommendation(analysisResult)
 
-        // 2. ATUR LOGIKA BACK SYSTEM (Tombol Back HP)
-        // Saat dipencet, paksa pindah ke Journey, jangan balik ke scan result
+        // JALANKAN LOGIKA CHIP DINAMIS
+        setupDynamicChips(analysisResult)
+
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 navigateToJourney()
@@ -57,72 +56,93 @@ class AnalysisRecommendationFragment : Fragment() {
         })
     }
 
-    private fun setupToolbar() {
-        val toolbar = binding.toolbar
-        toolbar.title = "Hasil Analisis"
+    private fun setupDynamicChips(resultString: String) {
+        val chipGroup = binding.chipGroupDynamic
+        chipGroup.removeAllViews() // Bersihkan chip lama
 
-        // Pasang ikon Back
-        toolbar.navigationIcon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_arrow_back)
+        val problems = resultString.split(",").map { it.trim() }
+        var firstCategoryFound: String? = null
 
-        // 3. ATUR LOGIKA BACK TOOLBAR (Pojok Kiri Atas)
-        toolbar.setNavigationOnClickListener {
-            navigateToJourney()
-        }
-    }
+        for (problem in problems) {
+            val (label, categoryFilter) = mapProblemToCategory(problem)
 
-    // Fungsi khusus untuk pindah ke halaman Journey
-    private fun navigateToJourney() {
-        try {
-            // Opsi: Bersihkan stack sampai Home agar tidak menumpuk, lalu buka Journey
-            val navOptions = NavOptions.Builder()
-                .setPopUpTo(R.id.homeFragment, false)
-                .build()
+            if (label != null && categoryFilter != null) {
+                // UPDATE: Inflate dari XML layout agar style-nya 100% sama dengan katalog
+                val chip = layoutInflater.inflate(R.layout.item_chip_dynamic, chipGroup, false) as Chip
 
-            // Arahkan ke ID Fragment Journey (sesuai main_nav.xml)
-            findNavController().navigate(R.id.skinJourneyFragment, null, navOptions)
+                chip.text = label
+                // Style (warna, animasi, checklist) otomatis ikut XML 'item_chip_dynamic.xml'
 
-        } catch (e: Exception) {
-            // Fallback jika gagal, balik ke Home saja
-            findNavController().navigate(R.id.homeFragment)
-        }
-    }
-
-    // Fungsi untuk Menyembunyikan/Menampilkan Navbar
-    private fun toggleBottomNavigation(isVisible: Boolean) {
-        // Menggunakan ID 'bottom_navigation' sesuai file XML yang Anda kirim
-        val bottomNav = requireActivity().findViewById<BottomNavigationView>(R.id.bottom_navigation)
-        bottomNav?.visibility = if (isVisible) View.VISIBLE else View.GONE
-    }
-
-    private fun loadRecommendation(resultKeyword: String) {
-        if (resultKeyword.isNotEmpty()) {
-            binding.tvSubtitle.text = "Berdasarkan analisis: ${resultKeyword.replace("_", " ")}"
-            when {
-                resultKeyword.contains("Jerawat", true) || resultKeyword.contains("Acne", true) -> {
-                    viewModel.filterBySuitability("Acne")
+                chip.setOnCheckedChangeListener { _, isChecked ->
+                    if (isChecked) {
+                        viewModel.filterBySuitability(categoryFilter)
+                    }
                 }
-                resultKeyword.contains("Kering", true) || resultKeyword.contains("Dry", true) -> {
-                    viewModel.filterBySuitability("Dry")
-                }
-                resultKeyword.contains("Minyak", true) || resultKeyword.contains("Oily", true) || resultKeyword.contains("Berminyak", true) -> {
-                    viewModel.filterBySuitability("Oily")
-                }
-                resultKeyword.contains("Kusam", true) || resultKeyword.contains("Dull", true) -> {
-                    viewModel.filterBySuitability("Dull")
-                }
-                else -> {
-                    viewModel.search(resultKeyword)
+
+                chipGroup.addView(chip)
+
+                // Auto-select chip pertama
+                if (firstCategoryFound == null) {
+                    firstCategoryFound = categoryFilter
+                    chip.isChecked = true
                 }
             }
+        }
+
+        // Load data awal
+        if (firstCategoryFound != null) {
+            viewModel.filterBySuitability(firstCategoryFound!!)
+            binding.tvSubtitle.text = "Rekomendasi difokuskan untuk masalah yang terdeteksi."
         } else {
-            binding.tvSubtitle.text = "Menampilkan semua produk rekomendasi."
+            binding.tvSubtitle.text = "Menampilkan semua rekomendasi."
             viewModel.filterBySuitability("Semua")
         }
     }
 
+    private fun mapProblemToCategory(problem: String): Pair<String?, String?> {
+        return when {
+            problem.contains("Jerawat", true) || problem.contains("Acne", true) ->
+                Pair("Jerawat (Acne)", "Acne")
+
+            problem.contains("Kering", true) || problem.contains("Dry", true) ->
+                Pair("Kulit Kering", "Dry")
+
+            problem.contains("Minyak", true) || problem.contains("Oily", true) || problem.contains("Berminyak", true) ->
+                Pair("Kulit Berminyak", "Oily")
+
+            problem.contains("Kusam", true) || problem.contains("Dull", true) ->
+                Pair("Kulit Kusam", "Dull")
+
+            problem.contains("Pori", true) || problem.contains("Pore", true) ->
+                Pair("Pori-pori Besar", "Oily")
+
+            else -> Pair(null, null)
+        }
+    }
+
+    private fun setupToolbar() {
+        val toolbar = binding.toolbar
+        toolbar.title = "Hasil Analisis"
+        toolbar.navigationIcon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_arrow_back)
+        toolbar.setNavigationOnClickListener { navigateToJourney() }
+    }
+
+    private fun navigateToJourney() {
+        try {
+            val navOptions = NavOptions.Builder().setPopUpTo(R.id.homeFragment, false).build()
+            findNavController().navigate(R.id.skinJourneyFragment, null, navOptions)
+        } catch (e: Exception) {
+            findNavController().navigate(R.id.homeFragment)
+        }
+    }
+
+    private fun toggleBottomNavigation(isVisible: Boolean) {
+        val bottomNav = requireActivity().findViewById<BottomNavigationView>(R.id.bottom_navigation)
+        bottomNav?.visibility = if (isVisible) View.VISIBLE else View.GONE
+    }
+
     private fun setupRecyclerView() {
         adapter = ProductAdapter(emptyList()) { product ->
-            // Navigasi ke Detail Produk
             val action = AnalysisRecommendationFragmentDirections
                 .actionAnalysisRecommendationFragmentToProductDetailsFragment(product)
             findNavController().navigate(action)
@@ -136,15 +156,10 @@ class AnalysisRecommendationFragment : Fragment() {
     private fun setupObservers() {
         viewModel.products.observe(viewLifecycleOwner) { productList ->
             adapter.updateData(productList)
-            if (productList.isEmpty()) {
-                binding.tvSubtitle.text = "${binding.tvSubtitle.text}\n(Belum ada produk spesifik untuk kategori ini)"
-            }
         }
-
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
-
         viewModel.errorMessage.observe(viewLifecycleOwner) { error ->
             if (error != null) Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
         }
@@ -152,7 +167,6 @@ class AnalysisRecommendationFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // PENTING: Munculkan kembali Navbar saat keluar dari halaman ini
         toggleBottomNavigation(true)
         _binding = null
     }
