@@ -41,7 +41,6 @@ class MainFragment : Fragment() {
                     R.id.cameraFragment,                // Kamera
                     R.id.analysisResultFragment,        // <--- TAMBAHAN: Hasil Analisis
                     R.id.skinDetailFragment,            // Detail Riwayat
-                    R.id.productRecommendationFragment, // Rekomendasi Produk
                     R.id.productDetailsFragment,        // Detail Produk
                     R.id.articleDetailFragment          // Baca Artikel
                         -> {

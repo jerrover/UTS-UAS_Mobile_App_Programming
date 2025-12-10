@@ -63,6 +63,13 @@
         android:name="com.example.dermamindapp.ui.fragment.ProductRecommendationFragment"
         android:label="ProductRecommendationFragment"
         tools:layout="@layout/fragment_product_recommendation">
+
+        <argument
+            android:name="analysisResult"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+
         <action
             android:id="@+id/action_productRecommendationFragment_to_productDetailsFragment"
             app:destination="@id/productDetailsFragment" />

@@ -49,6 +49,10 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    buildFeatures {
+        viewBinding = true
+    }
 }
 
 dependencies {
@@ -133,5 +137,8 @@ dependencies {
 
     // Pastikan Firestore juga ada (kalau belum)
     implementation("com.google.firebase:firebase-firestore-ktx:24.10.2")
+
+    // GSON (Untuk membaca file JSON)
+    implementation("com.google.code.gson:gson:2.10.1")
 
 }

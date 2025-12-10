@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
+import com.example.dermamindapp.data.DataSeeder
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 // MainActivity adalah satu-satunya Activity dalam aplikasi ini dan berfungsi sebagai
@@ -11,6 +12,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DataSeeder.seedProducts(this)
         setContentView(R.layout.activity_main)
 
         // Menambahkan callback khusus untuk menangani penekanan tombol kembali (back button).

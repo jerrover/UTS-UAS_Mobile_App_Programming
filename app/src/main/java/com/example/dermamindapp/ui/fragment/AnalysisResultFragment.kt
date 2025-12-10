@@ -12,8 +12,8 @@ import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.findNavController
-// import androidx.navigation.fragment.navArgs -> HAPUS INI
+// PENTING: Import ini wajib ada agar findNavController() jalan di Fragment
+import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.PreferencesHelper
@@ -22,13 +22,7 @@ import com.google.android.material.card.MaterialCardView
 
 class AnalysisResultFragment : Fragment() {
 
-    companion object {
-        const val ARG_DESTINATION_ID = "destination_id"
-    }
-
     private lateinit var viewModel: AnalysisViewModel
-    // private val args: AnalysisResultFragmentArgs by navArgs() -> HAPUS INI
-
     private lateinit var imageUri: String
     private lateinit var analysisResult: String
     private lateinit var prefsHelper: PreferencesHelper
@@ -39,11 +33,10 @@ class AnalysisResultFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_analysis_result, container, false)
 
-        // 1. Inisialisasi
         prefsHelper = PreferencesHelper(requireContext())
         viewModel = ViewModelProvider(this)[AnalysisViewModel::class.java]
 
-        // [BARU] Ambil data manual dari Bundle (Pengganti navArgs)
+        // Ambil data manual dari Bundle
         imageUri = arguments?.getString("imageUri") ?: ""
         analysisResult = arguments?.getString("analysisResults") ?: ""
 
@@ -63,7 +56,6 @@ class AnalysisResultFragment : Fragment() {
 
         setupResultCards(view)
 
-        // 2. Setup Tombol Simpan
         seeRecommendationsButton.setOnClickListener {
             saveAnalysisToCloud()
         }
@@ -88,15 +80,21 @@ class AnalysisResultFragment : Fragment() {
         viewModel.saveStatus.observe(viewLifecycleOwner) { isSuccess ->
             if (isSuccess == true) {
                 Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
-                try {
-                    val bundle = bundleOf(ARG_DESTINATION_ID to R.id.productRecommendationFragment)
 
-                    // GANTI BARIS INI: Gunakan R.id.mainFragment langsung
-                    requireActivity().findNavController(R.id.nav_host_fragment)
-                        .navigate(R.id.mainFragment, bundle)
+                try {
+                    // 1. Siapkan data untuk dikirim ke halaman produk
+                    // Kita kirim string hasil analisis (misal: "Jerawat_Aktif, Berminyak")
+                    val bundle = Bundle().apply {
+                        putString("analysisResult", analysisResult)
+                    }
+
+                    // 2. Navigasi menggunakan findNavController() milik Fragment
+                    // Pastikan ID 'productRecommendationFragment' ada di main_nav.xml
+                    findNavController().navigate(R.id.productRecommendationFragment, bundle)
 
                 } catch (e: Exception) {
-                    Toast.makeText(requireContext(), "Navigasi gagal: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Gagal navigasi: ${e.message}", Toast.LENGTH_LONG).show()
+                    e.printStackTrace()
                 }
                 viewModel.resetSaveStatus()
             }
@@ -104,17 +102,15 @@ class AnalysisResultFragment : Fragment() {
     }
 
     private fun saveAnalysisToCloud() {
-        // PERBAIKAN: Gunakan konstanta KEY_USER_ID yang benar
         val currentUserId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
 
         if (currentUserId.isNullOrEmpty()) {
-            // Jika masih null, pancing inisialisasi DatabaseHelper untuk membuat ID baru
+            // Coba pancing inisialisasi jika ID kosong
             com.example.dermamindapp.data.db.DatabaseHelper(requireContext())
-
-            // Coba ambil lagi
             val retryId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
+
             if (retryId.isNullOrEmpty()) {
-                Toast.makeText(requireContext(), "Gagal: User ID error. Coba restart aplikasi.", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "Error User ID. Silakan restart aplikasi.", Toast.LENGTH_LONG).show()
                 return
             }
             viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, retryId)
@@ -126,7 +122,6 @@ class AnalysisResultFragment : Fragment() {
     private fun setupResultCards(view: View) {
         val cardLayout: ViewGroup = view.findViewById(R.id.analysisCards)
 
-        // Cek jika kosong
         if (analysisResult.isEmpty()) return
 
         val resultsList = analysisResult.split(", ").map { it.trim() }
