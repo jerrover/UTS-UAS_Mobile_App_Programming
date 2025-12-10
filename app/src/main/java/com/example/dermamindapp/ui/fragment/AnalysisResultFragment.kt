@@ -9,16 +9,15 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-// PENTING: Import ini wajib ada agar findNavController() jalan di Fragment
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.PreferencesHelper
 import com.example.dermamindapp.ui.viewmodel.AnalysisViewModel
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.textfield.TextInputEditText
 
 class AnalysisResultFragment : Fragment() {
 
@@ -26,6 +25,9 @@ class AnalysisResultFragment : Fragment() {
     private lateinit var imageUri: String
     private lateinit var analysisResult: String
     private lateinit var prefsHelper: PreferencesHelper
+
+    // Tambahan variabel untuk Input Notes
+    private lateinit var etNotes: TextInputEditText
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -36,12 +38,13 @@ class AnalysisResultFragment : Fragment() {
         prefsHelper = PreferencesHelper(requireContext())
         viewModel = ViewModelProvider(this)[AnalysisViewModel::class.java]
 
-        // Ambil data manual dari Bundle
         imageUri = arguments?.getString("imageUri") ?: ""
         analysisResult = arguments?.getString("analysisResults") ?: ""
 
         val analysisImageView: ImageView = view.findViewById(R.id.imagePlaceholder)
         val seeRecommendationsButton: Button = view.findViewById(R.id.recommendationsButton)
+        val retakeButton: Button = view.findViewById(R.id.btnRetake) // Tombol baru
+        etNotes = view.findViewById(R.id.etNotes) // Input baru
 
         // Load gambar
         try {
@@ -56,19 +59,27 @@ class AnalysisResultFragment : Fragment() {
 
         setupResultCards(view)
 
+        // 1. Logic Tombol Foto Ulang
+        retakeButton.setOnClickListener {
+            // Kembali ke halaman sebelumnya (Kamera)
+            findNavController().popBackStack()
+        }
+
+        // 2. Logic Tombol Simpan
         seeRecommendationsButton.setOnClickListener {
             saveAnalysisToCloud()
         }
 
-        setupObservers(seeRecommendationsButton)
+        setupObservers(seeRecommendationsButton, retakeButton)
 
         return view
     }
 
-    private fun setupObservers(button: Button) {
+    private fun setupObservers(saveButton: Button, retakeButton: Button) {
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
-            button.isEnabled = !isLoading
-            button.text = if (isLoading) "Mengupload..." else "Lihat Rekomendasi"
+            saveButton.isEnabled = !isLoading
+            retakeButton.isEnabled = !isLoading // Disable tombol retake saat loading
+            saveButton.text = if (isLoading) "Mengupload..." else "Simpan & Rekomendasi"
         }
 
         viewModel.statusMessage.observe(viewLifecycleOwner) { msg ->
@@ -82,16 +93,10 @@ class AnalysisResultFragment : Fragment() {
                 Toast.makeText(requireContext(), "Hasil tersimpan di Cloud!", Toast.LENGTH_SHORT).show()
 
                 try {
-                    // 1. Siapkan data untuk dikirim ke halaman produk
-                    // Kita kirim string hasil analisis (misal: "Jerawat_Aktif, Berminyak")
                     val bundle = Bundle().apply {
                         putString("analysisResult", analysisResult)
                     }
-
-                    // 2. Navigasi menggunakan findNavController() milik Fragment
-                    // Pastikan ID 'productRecommendationFragment' ada di main_nav.xml
                     findNavController().navigate(R.id.productRecommendationFragment, bundle)
-
                 } catch (e: Exception) {
                     Toast.makeText(requireContext(), "Gagal navigasi: ${e.message}", Toast.LENGTH_LONG).show()
                     e.printStackTrace()
@@ -103,25 +108,26 @@ class AnalysisResultFragment : Fragment() {
 
     private fun saveAnalysisToCloud() {
         val currentUserId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
+        val notesText = etNotes.text.toString().trim() // Ambil teks notes
 
         if (currentUserId.isNullOrEmpty()) {
-            // Coba pancing inisialisasi jika ID kosong
+            // Logic retry ID (sama seperti sebelumnya)
             com.example.dermamindapp.data.db.DatabaseHelper(requireContext())
             val retryId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
-
             if (retryId.isNullOrEmpty()) {
                 Toast.makeText(requireContext(), "Error User ID. Silakan restart aplikasi.", Toast.LENGTH_LONG).show()
                 return
             }
-            viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, retryId)
+            // Kirim notes juga
+            viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, retryId, notesText)
         } else {
-            viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, currentUserId)
+            // Kirim notes juga
+            viewModel.uploadAndSaveAnalysis(imageUri, analysisResult, currentUserId, notesText)
         }
     }
 
     private fun setupResultCards(view: View) {
         val cardLayout: ViewGroup = view.findViewById(R.id.analysisCards)
-
         if (analysisResult.isEmpty()) return
 
         val resultsList = analysisResult.split(", ").map { it.trim() }
@@ -157,12 +163,12 @@ class AnalysisResultFragment : Fragment() {
 
     private fun getDescriptionFor(condition: String): String {
         return when (condition) {
-            "Jerawat_Aktif" -> "Terdeteksi adanya jerawat yang meradang. Disarankan menggunakan bahan aktif seperti Salicylic Acid."
-            "Kemerahan" -> "Kulit menunjukkan tanda iritasi atau sensitif. Gunakan produk yang menenangkan seperti Centella Asiatica."
-            "Kulit_Berminyak" -> "Produksi sebum berlebih terdeteksi. Gunakan pembersih wajah yang lembut dan oil-free."
-            "Tekstur_Pori_pori" -> "Pori-pori tampak membesar. Eksfoliasi rutin (AHA/BHA) dapat membantu menghaluskan tekstur."
-            "Kulit_Sehat" -> "Selamat! Kulit Anda tampak sehat dan terawat. Pertahankan rutinitas Anda."
-            else -> "Kondisi kulit terdeteksi. Konsultasikan dengan ahli jika perlu."
+            "Jerawat_Aktif" -> "Terdeteksi jerawat meradang."
+            "Kemerahan" -> "Tanda iritasi/sensitif."
+            "Kulit_Berminyak" -> "Produksi sebum berlebih."
+            "Tekstur_Pori_pori" -> "Pori-pori tampak besar."
+            "Kulit_Sehat" -> "Kulit tampak sehat."
+            else -> "Kondisi kulit terdeteksi."
         }
     }
 }

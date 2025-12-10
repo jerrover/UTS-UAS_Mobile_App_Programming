@@ -22,14 +22,14 @@
     <ImageView
         android:id="@+id/imagePlaceholder"
         android:layout_width="0dp"
-        android:layout_height="300dp"
+        android:layout_height="250dp"
         android:layout_marginTop="16dp"
         android:scaleType="centerCrop"
+        android:contentDescription="@string/analysis_image_placeholder"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/titleTextView"
-        tools:src="@drawable/scan"
-        android:contentDescription="@string/analysis_image_placeholder" />
+        tools:src="@drawable/scan" />
 
     <LinearLayout
         android:id="@+id/analysisCards"
@@ -44,69 +44,105 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_marginEnd="4dp"
             android:layout_weight="1">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="12dp">
 
                 <TextView
                     android:id="@+id/analysis_card_acne_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/analysis_card_acne_title"
+                    android:text="Kondisi 1"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/analysis_card_acne_description"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/analysis_card_acne_description"
-                    android:textSize="12sp" />
+                    android:text="Deskripsi singkat kondisi."
+                    android:textSize="11sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="4dp"
             android:layout_weight="1">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="12dp">
 
                 <TextView
                     android:id="@+id/analysis_card_finelines_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/analysis_card_finelines_title"
+                    android:text="Kondisi 2"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/analysis_card_finelines_description"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/analysis_card_finelines_description"
-                    android:textSize="12sp" />
+                    android:text="Deskripsi singkat kondisi."
+                    android:textSize="11sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-
     </LinearLayout>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/recommendationsButton"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilNotes"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:paddingVertical="12dp"
-        android:text="@string/analysis_recommendations_button"
+        android:layout_marginTop="12dp"
+        android:hint="Tambahkan Catatan (Opsional)"
+        app:layout_constraintTop_toBottomOf="@id/analysisCards"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etNotes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textMultiLine"
+            android:maxLines="3" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRetake"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="Foto Ulang"
+            android:textColor="@color/black" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/recommendationsButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.5"
+            android:paddingVertical="12dp"
+            android:text="Simpan &amp; Rekomendasi" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

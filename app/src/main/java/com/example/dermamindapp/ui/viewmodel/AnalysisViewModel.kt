@@ -28,7 +28,8 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
     private val _statusMessage = MutableLiveData<String?>()
     val statusMessage: LiveData<String?> = _statusMessage
 
-    fun uploadAndSaveAnalysis(localUriString: String, result: String, userId: String) {
+    // UPDATE: Menambahkan parameter 'notes: String'
+    fun uploadAndSaveAnalysis(localUriString: String, result: String, userId: String, notes: String) {
         Log.d(TAG, "Proses dimulai untuk User ID: $userId")
         _isLoading.value = true
         _statusMessage.value = "Mengupload foto..."
@@ -49,12 +50,13 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
                     val remoteUrl = resultData["secure_url"] as String
                     Log.d(TAG, "Upload SUKSES! URL: $remoteUrl")
 
+                    // Memasukkan notes ke dalam objek SkinAnalysis
                     val analysis = SkinAnalysis(
                         userId = userId,
                         date = System.currentTimeMillis(),
                         imageUri = remoteUrl,
                         result = result,
-                        notes = ""
+                        notes = notes // <--- Notes dimasukkan di sini
                     )
 
                     saveToFirestore(analysis)
