@@ -24,8 +24,6 @@ import java.util.*
 class SkinDetailFragment : Fragment() {
 
     private val args by navArgs<SkinDetailFragmentArgs>()
-
-    // Ganti dbHelper dengan ViewModel
     private lateinit var viewModel: JourneyViewModel
 
     private lateinit var tvDate: TextView
@@ -39,7 +37,6 @@ class SkinDetailFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_skin_detail, container, false)
 
-        // 1. Inisialisasi ViewModel
         viewModel = ViewModelProvider(this)[JourneyViewModel::class.java]
 
         val toolbar: Toolbar = view.findViewById(R.id.toolbar)
@@ -56,21 +53,32 @@ class SkinDetailFragment : Fragment() {
         tvResult = view.findViewById(R.id.tvResultDetail)
         tvNotes = view.findViewById(R.id.tvNotesDetail)
         ivAnalysis = view.findViewById(R.id.ivAnalysisDetail)
+
+        // Button Deklarasi
         val btnEditNotes: MaterialButton = view.findViewById(R.id.btnEditNotes)
+        val btnRecommendation: MaterialButton = view.findViewById(R.id.btnRecommendation) // Tombol baru
 
         populateUI()
 
+        // 1. Logic Tombol Edit Notes (Tetap sama)
         btnEditNotes.setOnClickListener {
             showEditNotesDialog()
         }
 
-        // 2. Observe status message dari ViewModel (untuk Toast/Snackbar)
+        // 2. Logic Tombol Rekomendasi (BARU)
+        btnRecommendation.setOnClickListener {
+            val analysisResultString = args.currentAnalysis.result
+
+            // Pindah ke ProductRecommendationFragment bawa hasil analisisnya
+            val action = SkinDetailFragmentDirections
+                .actionSkinDetailFragmentToProductRecommendationFragment(analysisResultString)
+            findNavController().navigate(action)
+        }
+
         viewModel.statusMessage.observe(viewLifecycleOwner) { message ->
             message?.let {
                 Snackbar.make(requireView(), it, Snackbar.LENGTH_SHORT).show()
-                viewModel.clearStatusMessage() // Bersihkan pesan agar tidak muncul lagi
-
-                // Jika pesan adalah "berhasil dihapus", kembali ke halaman sebelumnya
+                viewModel.clearStatusMessage()
                 if (it.contains("dihapus", ignoreCase = true)) {
                     findNavController().popBackStack()
                 }
@@ -79,6 +87,8 @@ class SkinDetailFragment : Fragment() {
 
         return view
     }
+
+    // ... (Sisa kode populateUI, showEditNotesDialog, deleteAnalysis biarkan sama seperti sebelumnya) ...
 
     private fun populateUI() {
         tvDate.text = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault()).format(Date(args.currentAnalysis.date))
@@ -97,11 +107,7 @@ class SkinDetailFragment : Fragment() {
             .setView(dialogView)
             .setPositiveButton("Save") { _, _ ->
                 val updatedNotes = editText.text.toString()
-
-                // 3. Panggil fungsi di ViewModel
                 viewModel.updateNotes(args.currentAnalysis.id, updatedNotes)
-
-                // Update UI lokal sementara
                 args.currentAnalysis.notes = updatedNotes
                 populateUI()
             }
@@ -114,7 +120,6 @@ class SkinDetailFragment : Fragment() {
             .setTitle("Delete Analysis")
             .setMessage("Are you sure you want to delete this history?")
             .setPositiveButton("Delete") { _, _ ->
-                // 4. Panggil fungsi di ViewModel
                 viewModel.deleteAnalysis(args.currentAnalysis.id)
             }
             .setNegativeButton("Cancel", null)

@@ -13,14 +13,12 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:navigationIcon="@drawable/ic_arrow_back"
             app:title="Analysis Detail" />
-
     </com.google.android.material.appbar.AppBarLayout>
 
     <ImageView
@@ -64,7 +62,7 @@
         android:layout_margin="16dp"
         app:cardCornerRadius="8dp"
         app:layout_constraintTop_toBottomOf="@+id/tvResultDetail"
-        app:layout_constraintBottom_toTopOf="@+id/btnEditNotes"
+        app:layout_constraintBottom_toTopOf="@+id/btnRecommendation"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -73,26 +71,35 @@
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:padding="16dp">
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Notes"
                 android:textStyle="bold"/>
-
             <TextView
                 android:id="@+id/tvNotesDetail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="No notes added."/>
-
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRecommendation"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Lihat Produk Rekomendasi"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@+id/btnEditNotes"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnEditNotes"
         android:layout_width="0dp"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_height="wrap_content"
         android:text="Edit Notes"
         android:layout_marginHorizontal="16dp"

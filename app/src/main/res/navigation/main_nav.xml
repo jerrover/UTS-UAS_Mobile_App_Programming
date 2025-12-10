@@ -83,6 +83,10 @@
         <argument
             android:name="currentAnalysis"
             app:argType="com.example.dermamindapp.data.model.SkinAnalysis" />
+
+        <action
+            android:id="@+id/action_skinDetailFragment_to_productRecommendationFragment"
+            app:destination="@id/productRecommendationFragment" />
     </fragment>
 
     <fragment
