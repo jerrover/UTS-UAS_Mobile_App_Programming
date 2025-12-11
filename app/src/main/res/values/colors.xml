@@ -26,4 +26,5 @@
     <color name="blue_50">#E3F2FD</color>
     <color name="gray_300">#E0E0E0</color>
     <color name="gray_500">#9E9E9E</color>
+    <color name="transparent">#00FFFFFF</color>
 </resources>

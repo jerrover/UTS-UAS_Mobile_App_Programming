@@ -74,7 +74,10 @@ class SkinJourneyFragment : Fragment() {
             viewModel.showAllData()
             tvFilterInfo.text = "Menampilkan semua riwayat"
             btnResetFilter.visibility = View.GONE
-            // Optional: Reset tanggal kalender ke hari ini visualnya agak tricky di Android standard view, jadi biarkan saja
+            // 1. Reset tanggal kalender ke hari ini
+            calendarView.setDate(System.currentTimeMillis(), true, true)
+            // 2. Terapkan style netral (tanpa highlight) pada tanggal
+            calendarView.setDateTextAppearance(R.style.TextAppearance_App_Body)
         }
     }
 
@@ -87,6 +90,9 @@ class SkinJourneyFragment : Fragment() {
             val selectedDateStr = String.format(Locale.US, "%02d/%02d/%04d", dayOfMonth, month + 1, year)
             tvFilterInfo.text = "Hasil pada: $selectedDateStr"
             btnResetFilter.visibility = View.VISIBLE
+
+            // KEMBALIKAN STYLE KE DEFAULT (0) untuk menampilkan highlight seleksi tanggal yang baru
+            calendarView.setDateTextAppearance(0)
         }
     }
 
@@ -168,6 +174,10 @@ class SkinJourneyFragment : Fragment() {
             viewModel.loadAnalyses(userId)
             btnResetFilter.visibility = View.GONE
             tvFilterInfo.text = "Menampilkan semua riwayat"
+            // FIX: Atur ulang tanggal kalender ke hari ini agar highlight tanggal yang sebelumnya dipilih hilang
+            calendarView.setDate(System.currentTimeMillis(), true, true)
+            // Terapkan style netral (tanpa highlight) saat dimuat ulang
+            calendarView.setDateTextAppearance(R.style.TextAppearance_App_Body)
         }
     }
 }

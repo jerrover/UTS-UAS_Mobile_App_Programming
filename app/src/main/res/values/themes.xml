@@ -61,4 +61,15 @@
         <item name="android:background">@android:color/transparent</item>
     </style>
 
+    <style name="CalendarViewCustomHighlightTheme" parent="Theme.UTS_UASMobileAppProgramming">
+        <item name="colorAccent">@color/pink_accent_400</item>
+
+        <item name="android:focusedMonthDateColor">@color/blue_500</item>
+
+        <item name="android:dateTextAppearance">@style/TextAppearance.App.Body</item>
+
+        <item name="android:textColorPrimary">@color/text_primary</item>
+
+    </style>
+
 </resources>

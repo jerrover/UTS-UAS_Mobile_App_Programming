@@ -29,15 +29,16 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:background="@drawable/bg_circle_inactive"
-            android:padding="8dp"/>
+            android:padding="8dp"
+            android:theme="@style/CalendarViewCustomHighlightTheme"/>
         <TextView
-            android:id="@+id/tvFilterInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Menampilkan semua riwayat"
-            android:gravity="center"
-            android:textStyle="italic"
-            android:layout_marginBottom="8dp"/>
+        android:id="@+id/tvFilterInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Menampilkan semua riwayat"
+        android:gravity="center"
+        android:textStyle="italic"
+        android:layout_marginBottom="8dp"/>
 
         <Button
             android:id="@+id/btnResetFilter"
