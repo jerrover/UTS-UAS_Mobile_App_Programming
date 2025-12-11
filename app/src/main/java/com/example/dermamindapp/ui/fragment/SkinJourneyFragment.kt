@@ -44,7 +44,7 @@ class SkinJourneyFragment : Fragment() {
         if (!userId.isNullOrEmpty()) {
             viewModel.loadAnalyses(userId)
         } else {
-            tvEmpty.text = "Please login to see your journey."
+            tvEmpty.text = "Silakan login untuk melihat riwayat."
             tvEmpty.visibility = View.VISIBLE
         }
 
@@ -52,25 +52,22 @@ class SkinJourneyFragment : Fragment() {
     }
 
     private fun initViews(view: View) {
-        // --- PERBAIKAN: ID DISAMAKAN DENGAN XML fragment_skin_journey.xml ---
-
-        recyclerView = view.findViewById(R.id.recyclerView) // XML: recyclerView
-        progressBar = view.findViewById(R.id.progressBar)   // XML: progressBar
-        tvEmpty = view.findViewById(R.id.tvNoData)          // XML: tvNoData
+        recyclerView = view.findViewById(R.id.recyclerView)
+        progressBar = view.findViewById(R.id.progressBar)
+        tvEmpty = view.findViewById(R.id.tvNoData)
     }
 
     private fun setupRecyclerView() {
         adapter = SkinJourneyAdapter(
             emptyList(),
             onItemClick = { analysis ->
-                // Navigasi ke Detail
-                // Gunakan try-catch agar tidak crash jika class Directions belum ter-generate
+                // AKSI 1: Klik Card -> Masuk ke Detail Riwayat
                 try {
                     val action = SkinJourneyFragmentDirections
                         .actionSkinJourneyFragmentToSkinDetailFragment(analysis)
                     findNavController().navigate(action)
                 } catch (e: Exception) {
-                    // Fallback manual jika Directions error
+                    // Fallback manual
                     val bundle = Bundle().apply {
                         putParcelable("currentAnalysis", analysis)
                     }
@@ -78,8 +75,8 @@ class SkinJourneyFragment : Fragment() {
                 }
             },
             onConsultClick = { analysis ->
-                Log.d("SkinJourney", "Klik Produk Cocok: ${analysis.result}")
-                // Navigasi ke Rekomendasi
+                // AKSI 2: Klik Tombol -> Masuk ke Rekomendasi Produk
+                Log.d("SkinJourney", "Cek Produk untuk: ${analysis.result}")
                 try {
                     val action = SkinJourneyFragmentDirections
                         .actionSkinJourneyFragmentToAnalysisRecommendationFragment(analysis.result)
@@ -127,6 +124,7 @@ class SkinJourneyFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        // Reload data saat kembali ke halaman ini (misal setelah hapus data di detail)
         val userId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
         if (!userId.isNullOrEmpty()) {
             viewModel.loadAnalyses(userId)
