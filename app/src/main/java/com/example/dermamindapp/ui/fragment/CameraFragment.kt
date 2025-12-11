@@ -20,7 +20,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.TextView
+import android.widget.TextView // Tidak perlu import ProgressBar lagi
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,7 +37,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.dermamindapp.R
 import com.example.dermamindapp.ml.SkinAnalyzer
 import kotlinx.coroutines.*
-import org.json.JSONObject // Pastikan ini di-import!
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -55,6 +55,14 @@ class CameraFragment : Fragment(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var lightSensor: Sensor? = null
     private lateinit var tvLightWarning: TextView
+
+    // [Ubah] Ganti ProgressBar dengan TextView pesan
+    private lateinit var tvProcessingMessage: TextView
+    private lateinit var btnTakePhoto: Button
+    private lateinit var btnUpload: Button
+
+    // Flag agar tombol tidak bisa dipencet berkali-kali
+    private var isProcessing = false
 
     private val activityResultLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -75,6 +83,8 @@ class CameraFragment : Fragment(), SensorEventListener {
         registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
             if (uri != null) {
                 analyzeImage(uri)
+            } else {
+                // User batal pilih gambar
             }
         }
 
@@ -85,16 +95,20 @@ class CameraFragment : Fragment(), SensorEventListener {
         val view = inflater.inflate(R.layout.fragment_camera, container, false)
 
         val toolbar: Toolbar = view.findViewById(R.id.toolbar)
-        toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
+        toolbar.setNavigationOnClickListener {
+            if (!isProcessing) findNavController().popBackStack()
+        }
 
         previewView = view.findViewById(R.id.cameraPreview)
         tvLightWarning = view.findViewById(R.id.tvLightWarning)
 
-        val takePhotoButton: Button = view.findViewById(R.id.takePhotoButton)
-        val uploadButton: Button = view.findViewById(R.id.uploadButton)
+        // [Ubah] Inisialisasi View baru
+        tvProcessingMessage = view.findViewById(R.id.tvProcessingMessage)
+        btnTakePhoto = view.findViewById(R.id.takePhotoButton)
+        btnUpload = view.findViewById(R.id.uploadButton)
 
-        takePhotoButton.setOnClickListener { takePhoto() }
-        uploadButton.setOnClickListener { selectImageFromGallery() }
+        btnTakePhoto.setOnClickListener { takePhoto() }
+        btnUpload.setOnClickListener { selectImageFromGallery() }
 
         if (!allPermissionsGranted()) {
             requestPermissions()
@@ -111,8 +125,29 @@ class CameraFragment : Fragment(), SensorEventListener {
         return view
     }
 
+    // [Ubah] Fungsi Helper untuk Mengatur Tampilan Loading (Teks Overlay)
+    private fun showLoading(isLoading: Boolean) {
+        isProcessing = isLoading
+        if (isLoading) {
+            // Tampilkan pesan overlay
+            tvProcessingMessage.visibility = View.VISIBLE
+            // Matikan tombol
+            btnTakePhoto.isEnabled = false
+            btnUpload.isEnabled = false
+        } else {
+            // Sembunyikan pesan overlay
+            tvProcessingMessage.visibility = View.GONE
+            // Hidupkan tombol kembali
+            btnTakePhoto.isEnabled = true
+            btnUpload.isEnabled = true
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        // Reset state saat kembali ke layar ini
+        showLoading(false)
+
         lightSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
@@ -167,7 +202,14 @@ class CameraFragment : Fragment(), SensorEventListener {
     }
 
     private fun takePhoto() {
+        // [Cegah Spam] Cek apakah sedang memproses
+        if (isProcessing) return
+
         val imageCapture = imageCapture ?: return
+
+        // [Mulai Loading - Tampilkan Teks Overlay]
+        showLoading(true)
+
         val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis())
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -187,45 +229,63 @@ class CameraFragment : Fragment(), SensorEventListener {
             ContextCompat.getMainExecutor(requireContext()),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onError(exc: ImageCaptureException) {
+                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
                     Toast.makeText(requireContext(), "Gagal foto.", Toast.LENGTH_SHORT).show()
+                    // [Error] Stop Loading (Hilangkan Teks)
+                    showLoading(false)
                 }
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     output.savedUri?.let { analyzeImage(it) }
+                    // Jangan stop loading di sini, lanjut ke analisis
                 }
             }
         )
     }
 
     private fun selectImageFromGallery() {
+        if (isProcessing) return
         pickMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
     private fun analyzeImage(uri: Uri) {
+        // Pastikan UI dalam keadaan loading (untuk flow galeri)
+        if (!isProcessing) showLoading(true)
+
         scope.launch {
             try {
-                val bitmap = withContext(Dispatchers.IO) { getBitmapFromUri(requireContext(), uri) }
-                if (bitmap == null) return@launch
+                val context = context ?: requireContext()
+                val bitmap = withContext(Dispatchers.IO) { getBitmapFromUri(context, uri) }
+
+                if (bitmap == null) {
+                    Toast.makeText(context, "Gagal memuat gambar", Toast.LENGTH_SHORT).show()
+                    showLoading(false)
+                    return@launch
+                }
 
                 // 1. Ambil probabilitas asli dari AI
                 val (probabilities, diagnosis) = withContext(Dispatchers.IO) { skinAnalyzer.analyze(bitmap) }
 
                 // 2. Ubah Map menjadi JSON String
-                // Contoh output: {"Jerawat_Aktif":0.8, "Kulit_Sehat":0.1, ...}
                 val jsonScores = JSONObject(probabilities as Map<*, *>).toString()
 
                 val bundle = Bundle().apply {
                     putString("imageUri", uri.toString())
-                    putString("analysisResults", jsonScores) // Kirim JSON!
+                    putString("analysisResults", jsonScores)
                 }
 
+                // Navigasi (Loading hilang karena pindah fragment)
                 findNavController().navigate(
                     R.id.analysisResultFragment,
                     bundle
                 )
+                // Reset flag
+                isProcessing = false
 
             } catch (e: Exception) {
                 Log.e(TAG, "Analisis gagal", e)
-                Toast.makeText(requireContext(), "Analisis gagal: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Analisis gagal: ${e.message}", Toast.LENGTH_SHORT).show()
+                // [Error] Stop Loading
+                showLoading(false)
             }
         }
     }
@@ -251,12 +311,12 @@ class CameraFragment : Fragment(), SensorEventListener {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        if (::skinAnalyzer.isInitialized) skinAnalyzer.close()
-        if (::cameraExecutor.isInitialized) cameraExecutor.shutdown()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        if (::skinAnalyzer.isInitialized) skinAnalyzer.close()
+        if (::cameraExecutor.isInitialized) cameraExecutor.shutdown()
         scope.cancel()
     }
 
