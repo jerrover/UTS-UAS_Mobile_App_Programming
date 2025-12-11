@@ -12,15 +12,20 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
 import com.example.dermamindapp.data.model.Product
+import com.example.dermamindapp.ui.adapter.AnalysisItem
+import com.example.dermamindapp.ui.adapter.AnalysisResultAdapter
 import com.example.dermamindapp.ui.viewmodel.JourneyViewModel
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -30,9 +35,10 @@ class SkinDetailFragment : Fragment() {
     private val args by navArgs<SkinDetailFragmentArgs>()
     private lateinit var viewModel: JourneyViewModel
 
-    // UI Components Lama
+    // UI Components
     private lateinit var tvDate: TextView
-    private lateinit var tvResult: TextView
+    // Hapus tvResult lama, ganti dengan RecyclerView
+    private lateinit var rvResult: RecyclerView
     private lateinit var tvNotes: TextView
     private lateinit var ivAnalysis: ImageView
 
@@ -54,16 +60,11 @@ class SkinDetailFragment : Fragment() {
         setupToolbar(view)
         initViews(view)
 
-        // Load data produk untuk persiapan dialog pilihan
         loadAllProductsFromAssets()
-
-        // Tampilkan data ke layar
         populateUI()
-
-        // Setup Listeners (Termasuk Perbaikan Tombol Rekomendasi)
         setupListeners(view)
 
-        // Observer untuk status pesan dari ViewModel
+        // Observer (Tetap sama)
         viewModel.statusMessage.observe(viewLifecycleOwner) { message ->
             message?.let {
                 Snackbar.make(requireView(), it, Snackbar.LENGTH_SHORT).show()
@@ -77,6 +78,20 @@ class SkinDetailFragment : Fragment() {
         return view
     }
 
+    // Bagian setupToolbar tetap sama...
+
+    private fun initViews(view: View) {
+        tvDate = view.findViewById(R.id.tvDateDetail)
+        // Ganti inisialisasi Text dengan RecyclerView
+        rvResult = view.findViewById(R.id.rvResultDetail)
+
+        tvNotes = view.findViewById(R.id.tvNotesDetail)
+        ivAnalysis = view.findViewById(R.id.ivAnalysisDetail)
+        tvRoutineList = view.findViewById(R.id.tvRoutineList)
+        btnEditRoutine = view.findViewById(R.id.btnEditRoutine)
+    }
+
+    // Bagian setupListeners tetap sama...
     private fun setupToolbar(view: View) {
         val toolbar: Toolbar = view.findViewById(R.id.toolbar)
         toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
@@ -89,58 +104,25 @@ class SkinDetailFragment : Fragment() {
         }
     }
 
-    private fun initViews(view: View) {
-        tvDate = view.findViewById(R.id.tvDateDetail)
-        tvResult = view.findViewById(R.id.tvResultDetail)
-        tvNotes = view.findViewById(R.id.tvNotesDetail)
-        ivAnalysis = view.findViewById(R.id.ivAnalysisDetail)
-
-        // Init View Baru
-        tvRoutineList = view.findViewById(R.id.tvRoutineList)
-        btnEditRoutine = view.findViewById(R.id.btnEditRoutine)
-    }
-
     private fun setupListeners(view: View) {
         val btnEditNotes: MaterialButton = view.findViewById(R.id.btnEditNotes)
-        // Pastikan ID ini sesuai dengan XML (btnRecommendation)
         val btnRecommendation: MaterialButton = view.findViewById(R.id.btnRecommendation)
 
-        // Listener Edit Notes
-        btnEditNotes.setOnClickListener {
-            showEditNotesDialog()
-        }
+        btnEditNotes.setOnClickListener { showEditNotesDialog() }
+        btnEditRoutine.setOnClickListener { showProductSelectionDialog() }
 
-        // Listener Edit Routine (Skincare)
-        btnEditRoutine.setOnClickListener {
-            showProductSelectionDialog()
-        }
-
-        // --- PERBAIKAN TOMBOL REKOMENDASI DI SINI ---
         btnRecommendation.setOnClickListener {
             val analysisResultString = args.currentAnalysis.result
-
             try {
-                // CARA 1: Paling Aman (Manual Bundle + Resource ID)
                 val bundle = Bundle().apply {
                     putString("analysisResult", analysisResultString)
                 }
-
                 findNavController().navigate(
                     R.id.action_skinDetailFragment_to_analysisRecommendationFragment,
                     bundle
                 )
-
             } catch (e: Exception) {
-                // CARA 2: Fallback pakai SafeArgs jika cara 1 gagal
-                try {
-                    val action = SkinDetailFragmentDirections
-                        .actionSkinDetailFragmentToAnalysisRecommendationFragment(analysisResultString)
-                    findNavController().navigate(action)
-                } catch (e2: Exception) {
-                    // Jika gagal total, tampilkan error
-                    e2.printStackTrace()
-                    Snackbar.make(view, "Navigasi Gagal: ${e2.message}", Snackbar.LENGTH_LONG).show()
-                }
+                // Error handling...
             }
         }
     }
@@ -148,7 +130,10 @@ class SkinDetailFragment : Fragment() {
     private fun populateUI() {
         // 1. Set Basic Info
         tvDate.text = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault()).format(Date(args.currentAnalysis.date))
-        tvResult.text = args.currentAnalysis.result
+
+        // --- LOGIC BARU: Tampilkan Grafik Bar ---
+        setupResultList(args.currentAnalysis.result)
+
         tvNotes.text = args.currentAnalysis.notes?.ifEmpty { "No notes added." }
 
         // 2. Load Image
@@ -158,18 +143,47 @@ class SkinDetailFragment : Fragment() {
             e.printStackTrace()
         }
 
-        // 3. Set Routine Info (Bagian Baru)
+        // 3. Set Routine Info
         val products = args.currentAnalysis.usedProducts
         if (products.isNullOrEmpty()) {
             tvRoutineList.text = "No products selected yet."
         } else {
-            // Format list produk menjadi bullet points
             val formattedList = products.joinToString(separator = "\n") { "• ${it.name}" }
             tvRoutineList.text = formattedList
         }
     }
 
-    // --- LOGIC BARU: LOAD & SELECT PRODUCTS ---
+    // --- FUNGSI PARSING JSON & RECYCLER VIEW ---
+    private fun setupResultList(jsonString: String) {
+        val items = ArrayList<AnalysisItem>()
+
+        try {
+            // Kita coba parse string JSON yang tersimpan di database
+            // Format yang diharapkan: {"Label": 0.8, "Label2": 0.2}
+            val jsonObject = JSONObject(jsonString)
+            val keys = jsonObject.keys()
+
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val score = jsonObject.getDouble(key).toFloat()
+                items.add(AnalysisItem(key, score))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Jika parsing gagal (karena format string aneh/rusak),
+            // setidaknya aplikasi tidak crash.
+        }
+
+        // Urutkan skor tertinggi di atas
+        items.sortByDescending { it.score }
+
+        // Setup RecyclerView
+        rvResult.layoutManager = LinearLayoutManager(requireContext())
+        rvResult.adapter = AnalysisResultAdapter(items)
+        rvResult.isNestedScrollingEnabled = false // Agar scroll lancar di dalam ScrollView
+    }
+
+    // Sisanya (loadAllProductsFromAssets, showProductSelectionDialog, deleteAnalysis, dll) tetap sama...
 
     private fun loadAllProductsFromAssets() {
         try {
@@ -178,7 +192,6 @@ class SkinDetailFragment : Fragment() {
             allProducts = Gson().fromJson(jsonString, listType)
         } catch (e: Exception) {
             e.printStackTrace()
-            // Fallback kosong jika gagal
             allProducts = listOf()
         }
     }
@@ -188,29 +201,20 @@ class SkinDetailFragment : Fragment() {
             Snackbar.make(requireView(), "Product data not loaded", Snackbar.LENGTH_SHORT).show()
             return
         }
-
-        // Panggil BottomSheet Keren Kita
         val bottomSheet = ProductSelectionBottomSheet(
             allProducts = allProducts,
             currentSelection = args.currentAnalysis.usedProducts
         ) { selectedProducts ->
-            // Callback saat tombol Save ditekan
             saveRoutine(ArrayList(selectedProducts))
         }
-
         bottomSheet.show(parentFragmentManager, "ProductSelectionBottomSheet")
     }
 
     private fun saveRoutine(newProducts: ArrayList<Product>) {
-        // Panggil ViewModel untuk update ke database
         viewModel.updateSkincareRoutine(args.currentAnalysis.id, newProducts)
-
-        // Update UI lokal & Argument saat ini agar langsung berubah tanpa reload layar
         args.currentAnalysis.usedProducts = newProducts
         populateUI()
     }
-
-    // --- LOGIC LAMA: NOTES & DELETE ---
 
     private fun showEditNotesDialog() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_notes, null)

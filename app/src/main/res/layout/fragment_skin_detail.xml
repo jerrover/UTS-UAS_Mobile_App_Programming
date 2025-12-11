@@ -55,12 +55,23 @@
                 tools:text="25 October 2025, 14:30"/>
 
             <TextView
-                android:id="@+id/tvResultDetail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Analysis Result"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="8dp"/>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvResultDetail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp"
-                android:layout_marginTop="4dp"
-                tools:text="Acne Scars, Early Fine Lines"/>
+                android:layout_marginTop="8dp"
+                android:nestedScrollingEnabled="false"
+                tools:listitem="@layout/item_analysis_result"
+                tools:itemCount="3"/>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/notesCard"
