@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.example.dermamindapp.R
@@ -31,20 +32,56 @@ class MainFragment : Fragment() {
         if (navHostFragment != null) {
             val navController = navHostFragment.navController
 
-            // Hubungkan BottomNav dengan NavController
+            // Hubungkan BottomNav dengan NavController (untuk navigasi dasar & update state item)
             bottomNav.setupWithNavController(navController)
 
-            // 3. LOGIKA VISIBILITAS NAVBAR
+            // =================================================================
+            // >> LOGIKA CUSTOM: RESET STACK SAAT KLIK TOMBOL HOME <<
+            // =================================================================
+            // Kita timpa listener agar Home (R.id.homeFragment) selalu kembali ke root
+            bottomNav.setOnItemSelectedListener { item ->
+                val homeDestinationId = R.id.homeFragment // Pastikan ID ini sesuai dengan ID di bottom_nav_menu.xml
+
+                if (item.itemId == homeDestinationId) {
+                    // Konfigurasi NavOptions untuk mereset Home ke kondisi awal
+                    val navOptions = NavOptions.Builder()
+                        // Pop semua destinasi di stack sampai root Home, dan hapus Home itu sendiri (true)
+                        .setPopUpTo(homeDestinationId, true)
+                        // Pastikan hanya ada satu instance Home di stack
+                        .setLaunchSingleTop(true)
+                        .build()
+
+                    navController.navigate(item.itemId, null, navOptions)
+                    true
+                } else {
+                    // Untuk tombol lain: gunakan navigasi default
+                    navController.navigate(item.itemId)
+                    true
+                }
+            }
+
+            // Tambahkan logika untuk pop stack saat item yang sama diklik ulang
+            bottomNav.setOnItemReselectedListener { item ->
+                val homeDestinationId = R.id.homeFragment
+
+                if (item.itemId == homeDestinationId) {
+                    // Pop semua destinasi di atas HomeFragment, tetapi TIDAK menghapus HomeFragment itu sendiri (false)
+                    navController.popBackStack(homeDestinationId, false)
+                }
+                // Jika ada tab lain yang ingin direset saat klik ulang, tambahkan di sini
+            }
+
+            // 3. LOGIKA VISIBILITAS NAVBAR (yang Anda tambahkan)
             navController.addOnDestinationChangedListener { _, destination, _ ->
                 when (destination.id) {
                     // DAFTAR HALAMAN FULL SCREEN (TANPA NAVBAR):
-                    R.id.productRecommendationFragment, // Katalog Produk Umum (Tetap muncul navbar)
+                    R.id.productRecommendationFragment,
                     R.id.articlesFragment,
-                    R.id.cameraFragment,                // Kamera
-                    R.id.analysisResultFragment,        // <--- TAMBAHAN: Hasil Analisis
-                    R.id.skinDetailFragment,            // Detail Riwayat
-                    R.id.productDetailsFragment,        // Detail Produk
-                    R.id.articleDetailFragment          // Baca Artikel
+                    R.id.cameraFragment,
+                    R.id.analysisResultFragment,
+                    R.id.skinDetailFragment,
+                    R.id.productDetailsFragment,
+                    R.id.articleDetailFragment
                         -> {
                         bottomNav.visibility = View.GONE
                     }
