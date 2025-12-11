@@ -21,6 +21,11 @@ import com.example.dermamindapp.R
 import com.example.dermamindapp.ui.adapter.ArticleAdapter
 import com.example.dermamindapp.ui.viewmodel.HomeViewModel
 import com.example.dermamindapp.ui.viewmodel.ProfileViewModel
+
+// Tambahkan impor untuk Handler dan Looper
+import android.os.Handler
+import android.os.Looper
+//
 import com.google.android.material.card.MaterialCardView
 
 class HomeFragment : Fragment() {
@@ -36,12 +41,50 @@ class HomeFragment : Fragment() {
     private lateinit var btnStartAnalysis: MaterialCardView
     private lateinit var tvSeeAllArticles: TextView
 
+    // >>> START: Logika Auto-Scroll
+    private val handler = Handler(Looper.getMainLooper())
+    private val SCROLL_DELAY: Long = 3000 // 3 detik
+    private var currentPage = 0
+
+    private val autoScrollRunnable = object : Runnable {
+        override fun run() {
+            val totalItems = articleAdapter.itemCount
+            if (totalItems > 1) {
+                // Hitung posisi berikutnya, dan kembali ke 0 jika sudah di akhir
+                currentPage = (currentPage + 1) % totalItems
+
+                // Scroll ke posisi berikutnya
+                rvArticles.smoothScrollToPosition(currentPage)
+
+                // Jadwal ulang runnable
+                handler.postDelayed(this, SCROLL_DELAY)
+            } else {
+                // Hentikan jika hanya ada 1 atau 0 item
+                stopAutoScroll()
+            }
+        }
+    }
+
+    private fun startAutoScroll() {
+        handler.removeCallbacks(autoScrollRunnable) // Hapus callback sebelumnya
+        currentPage = 0 // Mulai dari posisi pertama
+        // Langsung mulai scroll tanpa menunggu delay awal
+        handler.postDelayed(autoScrollRunnable, SCROLL_DELAY)
+    }
+
+    private fun stopAutoScroll() {
+        handler.removeCallbacks(autoScrollRunnable)
+    }
+    // <<< END: Logika Auto-Scroll
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         return inflater.inflate(R.layout.fragment_home, container, false)
     }
+
+    // ... (onViewCreated tetap sama)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -100,6 +143,7 @@ class HomeFragment : Fragment() {
         }
 
         rvArticles.apply {
+            // Layout Manager sudah Horizontal
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
             adapter = articleAdapter
         }
@@ -128,6 +172,15 @@ class HomeFragment : Fragment() {
             if (!articles.isNullOrEmpty()) {
                 articleAdapter.submitList(articles.take(5))
                 rvArticles.visibility = View.VISIBLE
+
+                // Mulai auto-scroll jika ada lebih dari satu artikel
+                if (articles.size > 1) {
+                    startAutoScroll()
+                } else {
+                    stopAutoScroll()
+                }
+            } else {
+                stopAutoScroll() // Hentikan jika list kosong
             }
         }
 
@@ -140,5 +193,22 @@ class HomeFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         profileViewModel.loadProfile()
+        // Coba mulai ulang auto-scroll jika data sudah ada saat fragment kembali aktif
+        val articles = homeViewModel.articles.value
+        if (!articles.isNullOrEmpty() && articles.size > 1) {
+            startAutoScroll()
+        }
+    }
+
+    // Hentikan auto-scroll saat Fragment tidak terlihat
+    override fun onPause() {
+        super.onPause()
+        stopAutoScroll()
+    }
+
+    // Hentikan auto-scroll saat View dihancurkan untuk mencegah kebocoran memori (memory leak)
+    override fun onDestroyView() {
+        super.onDestroyView()
+        stopAutoScroll()
     }
 }
