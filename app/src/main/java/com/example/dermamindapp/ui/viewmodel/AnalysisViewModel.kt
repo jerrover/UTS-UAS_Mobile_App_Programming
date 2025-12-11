@@ -65,7 +65,8 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
                 override fun onError(requestId: String, error: ErrorInfo) {
                     Log.e(TAG, "Upload GAGAL: ${error.description}")
                     _isLoading.postValue(false)
-                    _statusMessage.postValue("Gagal upload gambar: ${error.description}")
+                    // Mengubah pesan error teknis menjadi pesan yang lebih umum
+                    _statusMessage.postValue("Gagal upload foto. Mohon periksa koneksi internet Anda.")
                     _saveStatus.postValue(false)
                 }
 
@@ -81,11 +82,13 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
                 dbHelper.addAnalysis(analysis)
                 Log.d(TAG, "Simpan Database BERHASIL!")
                 _saveStatus.value = true
-                _statusMessage.value = "Berhasil disimpan!"
+                // Menghapus status message sukses di sini, Fragment akan menangani notifikasi sukses
+                _statusMessage.value = null
             } catch (e: Exception) {
                 Log.e(TAG, "Simpan Database GAGAL: ${e.message}")
                 _saveStatus.value = false
-                _statusMessage.value = "Gagal simpan database: ${e.message}"
+                // Mengubah pesan error teknis menjadi pesan yang lebih umum
+                _statusMessage.value = "Gagal menyimpan data analisis. Silakan coba lagi."
             } finally {
                 _isLoading.value = false
             }

@@ -75,6 +75,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
             .addOnFailureListener { e ->
                 _isLoading.value = false
+                Log.e("AuthViewModel", "Login Failed", e) // Tambahkan Log untuk debugging
                 // Handle pesan error
                 val msg = e.message ?: "Terjadi kesalahan"
                 if (msg.contains("There is no user") || msg.contains("record")) {
@@ -82,7 +83,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 } else if (msg.contains("password")) {
                     _errorMessage.value = "Password salah."
                 } else {
-                    _errorMessage.value = "Login Gagal: $msg"
+                    // Pesan umum, hindari menampilkan pesan backend
+                    _errorMessage.value = "Login Gagal. Silakan coba lagi."
                 }
             }
     }
@@ -159,8 +161,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
             } catch (e: Exception) {
                 _isLoading.value = false
-                val msg = e.message ?: "Gagal daftar"
-                _errorMessage.value = "Registrasi Gagal: $msg"
+                Log.e("AuthViewModel", "Registration Failed", e) // Tambahkan Log untuk debugging
+                // Pesan umum, hindari menampilkan pesan backend
+                _errorMessage.value = "Registrasi Gagal. Terjadi kesalahan saat membuat akun. Mohon coba lagi."
             }
         }
     }

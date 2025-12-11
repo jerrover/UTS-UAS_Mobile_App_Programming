@@ -109,6 +109,19 @@ class AnalysisResultFragment : Fragment() {
                     findNavController().navigate(R.id.action_analysisResultFragment_to_analysisRecommendationFragment, bundle)
                 }
                 viewModel.resetSaveStatus()
+            } else if (isSuccess == false) {
+                // Saat terjadi kegagalan, pesan error sudah diurus oleh statusMessage observer
+                viewModel.resetSaveStatus()
+            }
+        }
+
+        // Menambahkan observer untuk pesan status, termasuk pesan error yang di-catch oleh ViewModel
+        viewModel.statusMessage.observe(viewLifecycleOwner) { message ->
+            // Pastikan pesan yang ditampilkan adalah pesan error/informasi selain pesan loading awal.
+            message?.let {
+                if (it != "Mengupload foto...") {
+                    Toast.makeText(requireContext(), it, Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
