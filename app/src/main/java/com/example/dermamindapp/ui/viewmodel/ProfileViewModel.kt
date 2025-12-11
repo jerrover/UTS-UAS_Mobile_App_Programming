@@ -13,12 +13,15 @@ import com.cloudinary.android.callback.UploadCallback
 import com.example.dermamindapp.data.db.DatabaseHelper
 import com.example.dermamindapp.data.model.UserProfile
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore // Import Firestore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await // Import await untuk operasi suspend
 
 class ProfileViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dbHelper = DatabaseHelper(application)
     private val auth = FirebaseAuth.getInstance()
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance() // Inisialisasi Firestore
 
     // Data Profil User
     private val _userProfile = MutableLiveData<UserProfile?>()
@@ -52,29 +55,31 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 loadProfile() // Refresh data setelah simpan
                 _statusMessage.value = "Profil berhasil diperbarui"
             } catch (e: Exception) {
-                _statusMessage.value = "Gagal update profil: ${e.message}"
+                // Optimasi pesan error
+                Log.e("ProfileVM", "Gagal update profil", e)
+                _statusMessage.value = "Gagal memperbarui profil. Mohon coba lagi."
             }
         }
     }
 
-    // --- 3. FITUR BARU: GANTI FOTO PROFIL (UPLOAD) ---
+    // --- 3. GANTI FOTO PROFIL (UPLOAD) ---
     fun updateProfilePicture(localUri: Uri) {
         val currentUser = _userProfile.value
         // Pastikan kita punya User ID. Jika profile belum load, ambil dari Auth langsung.
-        val userId = currentUser?.id?.ifEmpty { auth.currentUser?.uid } ?: return
+        val userId = currentUser?.id?.ifEmpty { auth.currentUser?.uid } ?: run {
+            _statusMessage.value = "Gagal upload: Sesi tidak valid."
+            return
+        }
 
         _isUploading.value = true
         _statusMessage.value = "Mengupload foto..."
 
-        // STRATEGI PENTING: Gunakan User ID sebagai nama file (public_id).
-        // Cloudinary akan OTOMATIS menimpa file lama dengan nama yang sama.
-        // Jadi kita tidak perlu repot menghapus file lama manual.
         val uniquePublicId = "profile_$userId"
 
         MediaManager.get().upload(localUri)
             .option("public_id", uniquePublicId)
-            .option("folder", "user_profiles") // Folder di Cloudinary
-            .option("overwrite", true)         // Paksa timpa file lama
+            .option("folder", "user_profiles")
+            .option("overwrite", true)
             .option("resource_type", "image")
             .callback(object : UploadCallback {
                 override fun onStart(requestId: String) {}
@@ -83,24 +88,23 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 override fun onSuccess(requestId: String, resultData: Map<*, *>) {
                     val remoteUrl = resultData["secure_url"] as String
                     Log.d("Cloudinary", "Upload Sukses: $remoteUrl")
-
-                    // Simpan URL baru ke Database
                     savePhotoUrlToDb(remoteUrl)
                 }
 
                 override fun onError(requestId: String, error: ErrorInfo) {
                     _isUploading.postValue(false)
-                    _statusMessage.postValue("Gagal upload: ${error.description}")
+                    // Optimasi pesan error
+                    _statusMessage.postValue("Gagal upload foto. Mohon periksa koneksi internet Anda.")
+                    Log.e("Cloudinary", "Upload Gagal: ${error.description}")
                 }
                 override fun onReschedule(requestId: String, error: ErrorInfo) {}
             })
             .dispatch()
     }
 
-    // --- 4. FITUR BARU: HAPUS FOTO PROFIL ---
+    // --- 4. HAPUS FOTO PROFIL ---
     fun deleteProfilePicture() {
         _isUploading.value = true
-        // Kita kirim null untuk menghapus link foto di database
         savePhotoUrlToDb(null)
     }
 
@@ -113,9 +117,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 val msg = if (url == null) "Foto profil dihapus" else "Foto profil diperbarui"
                 _statusMessage.postValue(msg)
 
-                // Reload agar UI berubah (gambar hilang/ganti)
                 loadProfile()
             } catch (e: Exception) {
+                Log.e("ProfileVM", "Gagal update database photo", e)
                 _statusMessage.postValue("Gagal update database")
             } finally {
                 _isUploading.postValue(false)
@@ -123,17 +127,63 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // --- LOGOUT & LAINNYA ---
+    // --- 5. LOGOUT & LAINNYA ---
     fun logout() {
         auth.signOut()
+        // dbHelper.clearAllPreferences() // Tambahkan ini jika ada di DatabaseHelper
         _navigateToLogin.value = true
+    }
+
+    // --- 6. IMPLEMENTASI HAPUS AKUN ---
+    fun deleteAccount() {
+        val firebaseUser = auth.currentUser
+        // ID Dokumen di Firestore adalah Username/ID User
+        val userId = _userProfile.value?.id
+
+        if (firebaseUser == null || userId.isNullOrEmpty()) {
+            _statusMessage.value = "Hapus Akun Gagal. Sesi tidak valid, mohon login ulang."
+            return
+        }
+
+        _isUploading.value = true
+        _statusMessage.value = "Menghapus akun..."
+
+        viewModelScope.launch {
+            try {
+                // 1. Hapus data user dari Firestore (Dokumen user)
+                // Asumsi: 'users' adalah collection yang menyimpan profil user (sesuai AuthViewModel)
+                db.collection("users").document(userId).delete().await()
+                Log.d("ProfileVM", "User data $userId deleted from Firestore.")
+
+                // 2. Hapus user dari Firebase Auth
+                // Catatan: Ini bisa gagal jika otentikasi terakhir sudah lama
+                firebaseUser.delete().await()
+                Log.d("ProfileVM", "Firebase Auth user deleted.")
+
+                // 3. Clear local session (logout)
+                auth.signOut()
+                // dbHelper.clearAllPreferences() // Tambahkan ini jika ada di DatabaseHelper
+
+                _isUploading.value = false
+                _statusMessage.value = "Akun berhasil dihapus. Sampai jumpa!"
+                _navigateToLogin.value = true
+
+            } catch (e: Exception) {
+                Log.e("ProfileVM", "Failed to delete account.", e)
+                _isUploading.value = false
+
+                // Penanganan error khusus Re-authentication
+                val msg = e.message ?: "Terjadi kesalahan yang tidak diketahui."
+                if (msg.contains("requires recent authentication")) {
+                    _statusMessage.value = "Hapus Akun Gagal. Mohon logout dan login kembali untuk menghapus akun Anda."
+                } else {
+                    // Pesan umum untuk user
+                    _statusMessage.value = "Hapus Akun Gagal. Terjadi kesalahan saat menghapus data."
+                }
+            }
+        }
     }
 
     fun resetNavigate() { _navigateToLogin.value = false }
     fun clearStatus() { _statusMessage.value = null }
-
-    fun deleteAccount() {
-        // Logika hapus akun (bisa ditambahkan nanti)
-        _statusMessage.value = "Fitur hapus akun akan segera hadir"
-    }
 }

@@ -1,3 +1,5 @@
+// main/java/com/example/dermamindapp/ui/fragment/RegisterFragment.kt (Revisi)
+
 package com.example.dermamindapp.ui.fragment
 
 import android.graphics.Color
@@ -30,6 +32,8 @@ class RegisterFragment : Fragment() {
     // Deklarasi View
     private lateinit var etUsername: EditText
     private lateinit var etPassword: EditText
+    // >> BARU: Tambahkan konfirmasi password
+    private lateinit var etConfirmPassword: EditText
     private lateinit var btnRegister: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var tvLoginLink: TextView
@@ -37,6 +41,8 @@ class RegisterFragment : Fragment() {
     private lateinit var cgUsernameSuggestions: ChipGroup
     private lateinit var tvSuggestionTitle: TextView
     private lateinit var tilPassword: TextInputLayout
+    // >> BARU: Tambahkan konfirmasi password TextInputLayout
+    private lateinit var tilConfirmPassword: TextInputLayout
 
     private val searchHandler = Handler(Looper.getMainLooper())
     private var searchRunnable: Runnable? = null
@@ -56,6 +62,8 @@ class RegisterFragment : Fragment() {
         // 1. Inisialisasi View (findViewById)
         etUsername = view.findViewById(R.id.etUsername)
         etPassword = view.findViewById(R.id.etPassword)
+        // >> BARU: Inisialisasi etConfirmPassword & tilConfirmPassword
+        etConfirmPassword = view.findViewById(R.id.etConfirmPassword)
         btnRegister = view.findViewById(R.id.btnRegister)
         progressBar = view.findViewById(R.id.progressBar)
         tvLoginLink = view.findViewById(R.id.tvLoginLink)
@@ -63,16 +71,28 @@ class RegisterFragment : Fragment() {
         cgUsernameSuggestions = view.findViewById(R.id.cgUsernameSuggestions)
         tvSuggestionTitle = view.findViewById(R.id.tvSuggestionTitle)
         tilPassword = view.findViewById(R.id.tilPassword)
+        // >> BARU: Inisialisasi tilConfirmPassword
+        tilConfirmPassword = view.findViewById(R.id.tilConfirmPassword)
 
         setupUsernameCheck()
         setupObservers()
 
         btnRegister.setOnClickListener {
+            tilPassword.error = null
+            tilConfirmPassword.error = null // Clear error confirm password
+
             val username = etUsername.text.toString()
             val password = etPassword.text.toString()
+            val confirmPassword = etConfirmPassword.text.toString() // >> BARU: Ambil Conf Password
 
             if (password.length < 6) {
                 tilPassword.error = "Password minimal 6 karakter"
+                return@setOnClickListener
+            }
+
+            // >> BARU: Cek Konfirmasi Password
+            if (password != confirmPassword) {
+                tilConfirmPassword.error = "Konfirmasi Password tidak cocok!"
                 return@setOnClickListener
             }
 
@@ -127,6 +147,8 @@ class RegisterFragment : Fragment() {
         authViewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
             btnRegister.isEnabled = !isLoading
+            // Tambahkan disable/enable untuk field baru
+            etConfirmPassword.isEnabled = !isLoading
         }
 
         authViewModel.errorMessage.observe(viewLifecycleOwner) { error ->
