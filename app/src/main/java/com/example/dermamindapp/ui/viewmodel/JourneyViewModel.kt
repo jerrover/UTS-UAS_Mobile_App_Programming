@@ -9,13 +9,20 @@ import com.example.dermamindapp.data.db.DatabaseHelper
 import com.example.dermamindapp.data.model.Product
 import com.example.dermamindapp.data.model.SkinAnalysis
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat // Import ini penting
+import java.util.Date             // Import ini penting
+import java.util.Locale
 
 class JourneyViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dbHelper = DatabaseHelper(application)
 
+    // Data yang diobservasi oleh UI (Bisa berisi semua data, atau hasil filter)
     private val _analyses = MutableLiveData<List<SkinAnalysis>>()
     val analyses: LiveData<List<SkinAnalysis>> = _analyses
+
+    // Variable untuk menyimpan Master Data (Semua data asli dari DB)
+    private var allAnalysesList: List<SkinAnalysis> = emptyList()
 
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
@@ -35,14 +42,48 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
             try {
                 // Mengambil semua data analisis dari database
                 val list = dbHelper.getAllAnalyses()
+
+                // Simpan ke Master Data & LiveData
+                allAnalysesList = list
                 _analyses.value = list
+
             } catch (e: Exception) {
                 _analyses.value = emptyList()
+                allAnalysesList = emptyList()
                 _statusMessage.value = "Gagal memuat data: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
         }
+    }
+
+    // --- FUNGSI FILTER KALENDER (SUDAH DIPERBAIKI) ---
+    fun filterByDate(year: Int, month: Int, dayOfMonth: Int) {
+        // 1. Format tanggal yang dipilih dari Kalender (Target)
+        // Format: "yyyy-MM-dd" (contoh: 2023-10-25)
+        val selectedDateStr = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+
+        // 2. Siapkan formatter untuk mengubah Timestamp (Long) ke String
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+        // 3. Lakukan filtering
+        val filteredList = allAnalysesList.filter { analysis ->
+            // Ubah analysis.date (Long) menjadi Date, lalu format ke String
+            val analysisDate = Date(analysis.date)
+            val dateString = sdf.format(analysisDate)
+
+            // Bandingkan apakah tanggalnya sama
+            dateString == selectedDateStr
+        }
+
+        // Update LiveData agar UI berubah
+        _analyses.value = filteredList
+    }
+
+    // --- FUNGSI RESET FILTER ---
+    fun showAllData() {
+        // Kembalikan data ke Master Data (Semua)
+        _analyses.value = allAnalysesList
     }
 
     // --- FUNGSI DELETE ---
@@ -75,7 +116,7 @@ class JourneyViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // --- FUNGSI BARU: UPDATE SKINCARE ROUTINE (INI YANG HILANG) ---
+    // --- FUNGSI UPDATE SKINCARE ROUTINE ---
     fun updateSkincareRoutine(analysisId: String, products: List<Product>) {
         viewModelScope.launch {
             try {

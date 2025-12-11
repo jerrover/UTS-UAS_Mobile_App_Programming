@@ -5,6 +5,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.CalendarView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.fragment.app.Fragment
@@ -17,6 +19,7 @@ import com.example.dermamindapp.data.PreferencesHelper
 import com.example.dermamindapp.ui.adapter.SkinJourneyAdapter
 import com.example.dermamindapp.ui.viewmodel.JourneyViewModel
 import com.google.android.material.snackbar.Snackbar
+import java.util.Locale
 
 class SkinJourneyFragment : Fragment() {
 
@@ -26,6 +29,11 @@ class SkinJourneyFragment : Fragment() {
     private lateinit var progressBar: ProgressBar
     private lateinit var tvEmpty: TextView
     private lateinit var prefsHelper: PreferencesHelper
+
+    // View baru
+    private lateinit var calendarView: CalendarView
+    private lateinit var tvFilterInfo: TextView
+    private lateinit var btnResetFilter: Button
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -38,6 +46,7 @@ class SkinJourneyFragment : Fragment() {
 
         initViews(view)
         setupRecyclerView()
+        setupCalendar() // Setup Kalender
         observeViewModel()
 
         val userId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
@@ -55,19 +64,41 @@ class SkinJourneyFragment : Fragment() {
         recyclerView = view.findViewById(R.id.recyclerView)
         progressBar = view.findViewById(R.id.progressBar)
         tvEmpty = view.findViewById(R.id.tvNoData)
+
+        // Init View Baru
+        calendarView = view.findViewById(R.id.calendarView)
+        tvFilterInfo = view.findViewById(R.id.tvFilterInfo)
+        btnResetFilter = view.findViewById(R.id.btnResetFilter)
+
+        btnResetFilter.setOnClickListener {
+            viewModel.showAllData()
+            tvFilterInfo.text = "Menampilkan semua riwayat"
+            btnResetFilter.visibility = View.GONE
+            // Optional: Reset tanggal kalender ke hari ini visualnya agak tricky di Android standard view, jadi biarkan saja
+        }
+    }
+
+    private fun setupCalendar() {
+        calendarView.setOnDateChangeListener { _, year, month, dayOfMonth ->
+            // Panggil filter di ViewModel
+            viewModel.filterByDate(year, month, dayOfMonth)
+
+            // Update UI Teks
+            val selectedDateStr = String.format(Locale.US, "%02d/%02d/%04d", dayOfMonth, month + 1, year)
+            tvFilterInfo.text = "Hasil pada: $selectedDateStr"
+            btnResetFilter.visibility = View.VISIBLE
+        }
     }
 
     private fun setupRecyclerView() {
         adapter = SkinJourneyAdapter(
             emptyList(),
             onItemClick = { analysis ->
-                // AKSI 1: Klik Card -> Masuk ke Detail Riwayat
                 try {
                     val action = SkinJourneyFragmentDirections
                         .actionSkinJourneyFragmentToSkinDetailFragment(analysis)
                     findNavController().navigate(action)
                 } catch (e: Exception) {
-                    // Fallback manual
                     val bundle = Bundle().apply {
                         putParcelable("currentAnalysis", analysis)
                     }
@@ -75,14 +106,11 @@ class SkinJourneyFragment : Fragment() {
                 }
             },
             onConsultClick = { analysis ->
-                // AKSI 2: Klik Tombol -> Masuk ke Rekomendasi Produk
-                Log.d("SkinJourney", "Cek Produk untuk: ${analysis.result}")
                 try {
                     val action = SkinJourneyFragmentDirections
                         .actionSkinJourneyFragmentToAnalysisRecommendationFragment(analysis.result)
                     findNavController().navigate(action)
                 } catch (e: Exception) {
-                    // Fallback manual
                     val bundle = Bundle().apply {
                         putString("analysisResult", analysis.result)
                     }
@@ -100,9 +128,18 @@ class SkinJourneyFragment : Fragment() {
 
     private fun observeViewModel() {
         viewModel.analyses.observe(viewLifecycleOwner) { list ->
+            // Update logic untuk handle empty state yang lebih baik
             if (list.isNullOrEmpty()) {
                 tvEmpty.visibility = View.VISIBLE
                 recyclerView.visibility = View.GONE
+
+                // Ubah pesan kosong tergantung konteks (Filtered atau Emang kosong semua)
+                if (btnResetFilter.visibility == View.VISIBLE) {
+                    tvEmpty.text = "Tidak ada analisis pada tanggal ini."
+                } else {
+                    tvEmpty.text = "Belum ada riwayat analisis.\nMulai scan wajah Anda!"
+                }
+
             } else {
                 tvEmpty.visibility = View.GONE
                 recyclerView.visibility = View.VISIBLE
@@ -110,6 +147,7 @@ class SkinJourneyFragment : Fragment() {
             }
         }
 
+        // ... (observe isLoading dan statusMessage sama seperti sebelumnya) ...
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
@@ -124,10 +162,12 @@ class SkinJourneyFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Reload data saat kembali ke halaman ini (misal setelah hapus data di detail)
         val userId = prefsHelper.getString(PreferencesHelper.KEY_USER_ID)
         if (!userId.isNullOrEmpty()) {
+            // Kita reset filter saat masuk ulang agar data sinkron
             viewModel.loadAnalyses(userId)
+            btnResetFilter.visibility = View.GONE
+            tvFilterInfo.text = "Menampilkan semua riwayat"
         }
     }
 }
