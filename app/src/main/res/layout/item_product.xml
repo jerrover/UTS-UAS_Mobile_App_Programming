@@ -30,14 +30,31 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tvProductCategory"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/purple_500"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                tools:text="Serum" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvProductCategory"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/purple_500"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="Serum" />
+
+                <ImageButton
+                    android:id="@+id/btnAddToShelf"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_favorite"
+                    app:tint="@android:color/darker_gray"
+                    android:contentDescription="Tambah ke Rak" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tvProductName"

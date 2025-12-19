@@ -10,7 +10,7 @@
         android:title="@string/bottom_nav_journey" />
     <item
         android:id="@+id/productRecommendationFragment"
-        android:icon="@drawable/ic_favorite"
+        android:icon="@drawable/ic_products"
         android:title="@string/bottom_nav_products" />
     <item
         android:id="@+id/profileFragment"

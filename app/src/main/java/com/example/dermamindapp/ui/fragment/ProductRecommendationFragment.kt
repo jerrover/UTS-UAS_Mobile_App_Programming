@@ -17,10 +17,12 @@ import com.example.dermamindapp.ui.adapter.ProductAdapter
 import com.example.dermamindapp.ui.viewmodel.ProductViewModel
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.chip.Chip
+import com.example.dermamindapp.data.db.DatabaseHelper
 
 class ProductRecommendationFragment : Fragment() {
 
     private var _binding: FragmentProductRecommendationBinding? = null
+    private lateinit var dbHelper: DatabaseHelper
     private val binding get() = _binding!!
 
     private val viewModel: ProductViewModel by viewModels()
@@ -37,16 +39,13 @@ class ProductRecommendationFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // --- UPDATE: PAKSA NAVBAR MUNCUL ---
-        // Karena ini halaman katalog utama, navbar wajib ada.
         toggleBottomNavigation(true)
-        // -----------------------------------
+        dbHelper = DatabaseHelper(requireContext())
 
         setupRecyclerView()
         setupObservers()
         setupListeners()
 
-        // Default: Muat semua produk
         viewModel.filterBySuitability("Semua")
     }
 
@@ -59,12 +58,19 @@ class ProductRecommendationFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        adapter = ProductAdapter(emptyList()) { product ->
-            // Navigasi ke Detail Produk
-            val action = ProductRecommendationFragmentDirections
-                .actionProductRecommendationFragmentToProductDetailsFragment(product)
-            findNavController().navigate(action)
-        }
+        adapter = ProductAdapter(
+            productList = emptyList(),
+            onItemClick = { product ->
+                val action = ProductRecommendationFragmentDirections
+                    .actionProductRecommendationFragmentToProductDetailsFragment(product)
+                findNavController().navigate(action)
+            },
+            onAddToShelfClick = { product ->
+                viewModel.addToShelf(dbHelper, product)
+                Toast.makeText(context, "Menambahkan ke Rak Skincare...", Toast.LENGTH_SHORT).show()
+            }
+        )
+
         binding.rvProducts.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = this@ProductRecommendationFragment.adapter

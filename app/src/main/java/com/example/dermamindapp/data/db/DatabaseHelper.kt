@@ -165,7 +165,6 @@ class DatabaseHelper(context: Context) {
         }
     }
 
-    // --- FITUR UPDATE SKINCARE ROUTINE ---
     suspend fun updateAnalysisProducts(analysisId: String, products: List<Product>) {
         val uid = getCurrentUserId()
         if (uid.isEmpty()) return
@@ -180,6 +179,81 @@ class DatabaseHelper(context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Gagal update skincare routine: ${e.message}")
             throw e
+        }
+    }
+
+    // 1. Tambah produk ke Rak
+    suspend fun addToShelf(product: Product) {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return
+
+        try {
+            // Gunakan ID produk sebagai nama dokumen agar tidak duplikat
+            // Jika ID kosong, buat ID unik
+            val productId = if (product.id.isNotEmpty()) product.id else "prod_${System.currentTimeMillis()}"
+            val productToSave = product.copy(id = productId)
+
+            firestore.collection("users").document(uid)
+                .collection("my_shelf")
+                .document(productId)
+                .set(productToSave)
+                .await()
+
+            Log.d(TAG, "Produk ${product.name} berhasil masuk ke Rak.")
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal tambah ke rak: ${e.message}")
+            throw e
+        }
+    }
+
+    // 2. Hapus produk dari Rak
+    suspend fun removeFromShelf(productId: String) {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return
+
+        try {
+            firestore.collection("users").document(uid)
+                .collection("my_shelf")
+                .document(productId)
+                .delete()
+                .await()
+            Log.d(TAG, "Produk $productId dihapus dari Rak.")
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    // 3. Ambil semua produk di Rak (Untuk ditampilkan di BottomSheet)
+    suspend fun getMyShelfProducts(): List<Product> {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return emptyList()
+
+        return try {
+            val snapshot = firestore.collection("users").document(uid)
+                .collection("my_shelf")
+                .get()
+                .await()
+            snapshot.toObjects(Product::class.java)
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal ambil data rak: ${e.message}")
+            emptyList()
+        }
+    }
+
+    // 4. Cek apakah produk sudah ada di rak (Untuk update UI tombol Love/Add)
+    suspend fun isProductInShelf(productId: String): Boolean {
+        val uid = getCurrentUserId()
+        if (uid.isEmpty()) return false
+
+        return try {
+            val doc = firestore.collection("users").document(uid)
+                .collection("my_shelf")
+                .document(productId)
+                .get()
+                .await()
+            doc.exists()
+        } catch (e: Exception) {
+            false
         }
     }
 }

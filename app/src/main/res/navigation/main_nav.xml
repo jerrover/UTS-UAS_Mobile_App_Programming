@@ -90,6 +90,10 @@
             android:id="@+id/action_skinDetailFragment_to_analysisRecommendationFragment"
             app:destination="@id/analysisRecommendationFragment" />
 
+        <action
+            android:id="@+id/action_skinDetailFragment_to_productRecommendationFragment"
+            app:destination="@id/productRecommendationFragment" />
+
     </fragment>
 
     <fragment

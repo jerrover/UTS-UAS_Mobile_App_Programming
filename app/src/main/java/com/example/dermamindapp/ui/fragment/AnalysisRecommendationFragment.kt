@@ -14,6 +14,7 @@ import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.dermamindapp.R
+import com.example.dermamindapp.data.db.DatabaseHelper
 import com.example.dermamindapp.databinding.FragmentAnalysisRecommendationBinding
 import com.example.dermamindapp.ui.adapter.ProductAdapter
 import com.example.dermamindapp.ui.viewmodel.ProductViewModel
@@ -27,6 +28,7 @@ class AnalysisRecommendationFragment : Fragment() {
 
     private val viewModel: ProductViewModel by viewModels()
     private lateinit var adapter: ProductAdapter
+    private lateinit var dbHelper: DatabaseHelper // Tambahkan helper DB
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -39,6 +41,7 @@ class AnalysisRecommendationFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        dbHelper = DatabaseHelper(requireContext()) // Inisialisasi DB
         toggleBottomNavigation(false)
         setupRecyclerView()
         setupObservers()
@@ -46,7 +49,6 @@ class AnalysisRecommendationFragment : Fragment() {
         val analysisResult = arguments?.getString("analysisResult") ?: ""
         setupToolbar()
 
-        // JALANKAN LOGIKA CHIP DINAMIS
         setupDynamicChips(analysisResult)
 
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
@@ -58,7 +60,7 @@ class AnalysisRecommendationFragment : Fragment() {
 
     private fun setupDynamicChips(resultString: String) {
         val chipGroup = binding.chipGroupDynamic
-        chipGroup.removeAllViews() // Bersihkan chip lama
+        chipGroup.removeAllViews()
 
         val problems = resultString.split(",").map { it.trim() }
         var firstCategoryFound: String? = null
@@ -67,21 +69,16 @@ class AnalysisRecommendationFragment : Fragment() {
             val (label, categoryFilter) = mapProblemToCategory(problem)
 
             if (label != null && categoryFilter != null) {
-                // UPDATE: Inflate dari XML layout agar style-nya 100% sama dengan katalog
                 val chip = layoutInflater.inflate(R.layout.item_chip_dynamic, chipGroup, false) as Chip
-
                 chip.text = label
-                // Style (warna, animasi, checklist) otomatis ikut XML 'item_chip_dynamic.xml'
 
                 chip.setOnCheckedChangeListener { _, isChecked ->
                     if (isChecked) {
                         viewModel.filterBySuitability(categoryFilter)
                     }
                 }
-
                 chipGroup.addView(chip)
 
-                // Auto-select chip pertama
                 if (firstCategoryFound == null) {
                     firstCategoryFound = categoryFilter
                     chip.isChecked = true
@@ -89,7 +86,6 @@ class AnalysisRecommendationFragment : Fragment() {
             }
         }
 
-        // Load data awal
         if (firstCategoryFound != null) {
             viewModel.filterBySuitability(firstCategoryFound!!)
             binding.tvSubtitle.text = "Rekomendasi difokuskan untuk masalah yang terdeteksi."
@@ -103,19 +99,14 @@ class AnalysisRecommendationFragment : Fragment() {
         return when {
             problem.contains("Jerawat", true) || problem.contains("Acne", true) ->
                 Pair("Jerawat (Acne)", "Acne")
-
             problem.contains("Kering", true) || problem.contains("Dry", true) ->
                 Pair("Kulit Kering", "Dry")
-
             problem.contains("Minyak", true) || problem.contains("Oily", true) || problem.contains("Berminyak", true) ->
                 Pair("Kulit Berminyak", "Oily")
-
             problem.contains("Kusam", true) || problem.contains("Dull", true) ->
                 Pair("Kulit Kusam", "Dull")
-
             problem.contains("Pori", true) || problem.contains("Pore", true) ->
                 Pair("Pori-pori Besar", "Oily")
-
             else -> Pair(null, null)
         }
     }
@@ -142,11 +133,20 @@ class AnalysisRecommendationFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        adapter = ProductAdapter(emptyList()) { product ->
-            val action = AnalysisRecommendationFragmentDirections
-                .actionAnalysisRecommendationFragmentToProductDetailsFragment(product)
-            findNavController().navigate(action)
-        }
+        // PERBAIKAN DI SINI: Tambahkan callback kedua (onAddToShelfClick)
+        adapter = ProductAdapter(
+            productList = emptyList(),
+            onItemClick = { product ->
+                val action = AnalysisRecommendationFragmentDirections
+                    .actionAnalysisRecommendationFragmentToProductDetailsFragment(product)
+                findNavController().navigate(action)
+            },
+            onAddToShelfClick = { product ->
+                // Panggil ViewModel untuk simpan ke database
+                viewModel.addToShelf(dbHelper, product)
+                Toast.makeText(context, "Menambahkan ke Rak Skincare...", Toast.LENGTH_SHORT).show()
+            }
+        )
         binding.rvProducts.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = this@AnalysisRecommendationFragment.adapter

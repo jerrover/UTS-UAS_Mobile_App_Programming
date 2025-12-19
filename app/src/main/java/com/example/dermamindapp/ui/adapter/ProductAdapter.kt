@@ -3,6 +3,7 @@ package com.example.dermamindapp.ui.adapter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
@@ -14,10 +15,12 @@ import java.util.Locale
 
 class ProductAdapter(
     private var productList: List<Product>,
-    private val onItemClick: (Product) -> Unit
+    // Callback 1: Klik detail produk
+    private val onItemClick: (Product) -> Unit,
+    // Callback 2: Klik tambah ke rak (Opsional, default null biar aman)
+    private val onAddToShelfClick: ((Product) -> Unit)? = null
 ) : RecyclerView.Adapter<ProductAdapter.ProductViewHolder>() {
 
-    // Fungsi untuk update data saat filter berubah nanti
     fun updateData(newProducts: List<Product>) {
         productList = newProducts
         notifyDataSetChanged()
@@ -42,24 +45,29 @@ class ProductAdapter(
         private val tvName: TextView = itemView.findViewById(R.id.tvProductName)
         private val tvPrice: TextView = itemView.findViewById(R.id.tvProductPrice)
         private val tvSuitability: TextView = itemView.findViewById(R.id.tvProductSuitability)
+        private val btnAddToShelf: ImageButton = itemView.findViewById(R.id.btnAddToShelf)
 
         fun bind(product: Product) {
             tvName.text = product.name
             tvCategory.text = product.category
             tvSuitability.text = "Cocok: ${product.suitability}"
 
-            // Format Harga ke Rupiah
             val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
             tvPrice.text = formatRupiah.format(product.price)
 
-            // Load Gambar dengan Glide
             Glide.with(itemView.context)
                 .load(product.imageUrl)
-                .placeholder(R.drawable.ic_launcher_background) // Gambar loading sementara
-                .error(R.drawable.ic_launcher_background) // Gambar jika error
+                .placeholder(R.drawable.ic_launcher_background)
+                .error(R.drawable.ic_launcher_background)
                 .into(ivImage)
 
-            // Klik item
+            // Logic Tombol Add to Shelf
+            btnAddToShelf.setOnClickListener {
+                onAddToShelfClick?.invoke(product)
+                // Visual feedback sederhana (Ganti warna jadi merah/aktif)
+                btnAddToShelf.setColorFilter(android.graphics.Color.RED)
+            }
+
             itemView.setOnClickListener {
                 onItemClick(product)
             }

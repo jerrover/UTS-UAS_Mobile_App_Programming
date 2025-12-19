@@ -5,6 +5,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.example.dermamindapp.data.model.Product
 import com.example.dermamindapp.data.repository.ProductRepository
+import com.example.dermamindapp.data.db.DatabaseHelper
+import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
 
 class ProductViewModel : ViewModel() {
 
@@ -78,5 +81,16 @@ class ProductViewModel : ViewModel() {
     fun filterBySuitability(suitability: String) {
         currentFilterSuitability = suitability
         applyFilter()
+    }
+
+    fun addToShelf(databaseHelper: DatabaseHelper, product: Product) {
+        viewModelScope.launch {
+            try {
+                databaseHelper.addToShelf(product)
+                _errorMessage.value = "Berhasil ditambahkan ke Rak Kamu!"
+            } catch (e: Exception) {
+                _errorMessage.value = "Gagal menambah: ${e.message}"
+            }
+        }
     }
 }

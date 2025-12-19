@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -16,15 +17,21 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.dermamindapp.R
+import com.example.dermamindapp.data.db.DatabaseHelper
 import com.example.dermamindapp.data.model.Product
 import com.example.dermamindapp.ui.adapter.AnalysisItem
 import com.example.dermamindapp.ui.adapter.AnalysisResultAdapter
+import com.example.dermamindapp.ui.fragment.ProductSelectionBottomSheet
 import com.example.dermamindapp.ui.viewmodel.JourneyViewModel
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
@@ -35,18 +42,16 @@ class SkinDetailFragment : Fragment() {
     private val args by navArgs<SkinDetailFragmentArgs>()
     private lateinit var viewModel: JourneyViewModel
 
-    // UI Components
     private lateinit var tvDate: TextView
-    // Hapus tvResult lama, ganti dengan RecyclerView
     private lateinit var rvResult: RecyclerView
     private lateinit var tvNotes: TextView
     private lateinit var ivAnalysis: ImageView
-
-    // UI Components Baru (Routine/Skincare)
     private lateinit var tvRoutineList: TextView
     private lateinit var btnEditRoutine: ImageView
+    private lateinit var dbHelper: DatabaseHelper
+    private var myShelfProducts: List<Product> = emptyList()
 
-    // Master Data Produk
+    // --- PERBAIKAN: Hapus duplikasi di sini, cukup satu deklarasi saja ---
     private var allProducts: List<Product> = emptyList()
 
     override fun onCreateView(
@@ -54,17 +59,19 @@ class SkinDetailFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_skin_detail, container, false)
-
         viewModel = ViewModelProvider(this)[JourneyViewModel::class.java]
+
+        dbHelper = DatabaseHelper(requireContext())
 
         setupToolbar(view)
         initViews(view)
 
-        loadAllProductsFromAssets()
+        // Panggil fetch data rak saat fragment dibuat
+        fetchMyShelfData()
+
         populateUI()
         setupListeners(view)
 
-        // Observer (Tetap sama)
         viewModel.statusMessage.observe(viewLifecycleOwner) { message ->
             message?.let {
                 Snackbar.make(requireView(), it, Snackbar.LENGTH_SHORT).show()
@@ -74,24 +81,18 @@ class SkinDetailFragment : Fragment() {
                 }
             }
         }
-
         return view
     }
 
-    // Bagian setupToolbar tetap sama...
-
     private fun initViews(view: View) {
         tvDate = view.findViewById(R.id.tvDateDetail)
-        // Ganti inisialisasi Text dengan RecyclerView
         rvResult = view.findViewById(R.id.rvResultDetail)
-
         tvNotes = view.findViewById(R.id.tvNotesDetail)
         ivAnalysis = view.findViewById(R.id.ivAnalysisDetail)
         tvRoutineList = view.findViewById(R.id.tvRoutineList)
         btnEditRoutine = view.findViewById(R.id.btnEditRoutine)
     }
 
-    // Bagian setupListeners tetap sama...
     private fun setupToolbar(view: View) {
         val toolbar: Toolbar = view.findViewById(R.id.toolbar)
         toolbar.setNavigationOnClickListener { findNavController().popBackStack() }
@@ -128,22 +129,21 @@ class SkinDetailFragment : Fragment() {
     }
 
     private fun populateUI() {
-        // 1. Set Basic Info
-        tvDate.text = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault()).format(Date(args.currentAnalysis.date))
+        tvDate.text = SimpleDateFormat(
+            "dd MMMM yyyy, HH:mm",
+            Locale.getDefault()
+        ).format(Date(args.currentAnalysis.date))
 
-        // --- LOGIC BARU: Tampilkan Grafik Bar ---
         setupResultList(args.currentAnalysis.result)
 
         tvNotes.text = args.currentAnalysis.notes?.ifEmpty { "No notes added." }
 
-        // 2. Load Image
         try {
             Glide.with(this).load(args.currentAnalysis.imageUri).into(ivAnalysis)
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        // 3. Set Routine Info
         val products = args.currentAnalysis.usedProducts
         if (products.isNullOrEmpty()) {
             tvRoutineList.text = "No products selected yet."
@@ -153,13 +153,10 @@ class SkinDetailFragment : Fragment() {
         }
     }
 
-    // --- FUNGSI PARSING JSON & RECYCLER VIEW ---
     private fun setupResultList(jsonString: String) {
         val items = ArrayList<AnalysisItem>()
 
         try {
-            // Kita coba parse string JSON yang tersimpan di database
-            // Format yang diharapkan: {"Label": 0.8, "Label2": 0.2}
             val jsonObject = JSONObject(jsonString)
             val keys = jsonObject.keys()
 
@@ -170,24 +167,19 @@ class SkinDetailFragment : Fragment() {
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            // Jika parsing gagal (karena format string aneh/rusak),
-            // setidaknya aplikasi tidak crash.
         }
 
-        // Urutkan skor tertinggi di atas
         items.sortByDescending { it.score }
 
-        // Setup RecyclerView
         rvResult.layoutManager = LinearLayoutManager(requireContext())
         rvResult.adapter = AnalysisResultAdapter(items)
-        rvResult.isNestedScrollingEnabled = false // Agar scroll lancar di dalam ScrollView
+        rvResult.isNestedScrollingEnabled = false
     }
-
-    // Sisanya (loadAllProductsFromAssets, showProductSelectionDialog, deleteAnalysis, dll) tetap sama...
 
     private fun loadAllProductsFromAssets() {
         try {
-            val jsonString = requireContext().assets.open("products.json").bufferedReader().use { it.readText() }
+            val jsonString =
+                requireContext().assets.open("products.json").bufferedReader().use { it.readText() }
             val listType = object : TypeToken<List<Product>>() {}.type
             allProducts = Gson().fromJson(jsonString, listType)
         } catch (e: Exception) {
@@ -197,16 +189,24 @@ class SkinDetailFragment : Fragment() {
     }
 
     private fun showProductSelectionDialog() {
-        if (allProducts.isEmpty()) {
-            Snackbar.make(requireView(), "Product data not loaded", Snackbar.LENGTH_SHORT).show()
-            return
-        }
         val bottomSheet = ProductSelectionBottomSheet(
-            allProducts = allProducts,
-            currentSelection = args.currentAnalysis.usedProducts
-        ) { selectedProducts ->
-            saveRoutine(ArrayList(selectedProducts))
-        }
+            myShelfProducts = myShelfProducts,
+            currentSelection = args.currentAnalysis.usedProducts,
+            onSaveClick = { selectedProducts ->
+                saveRoutine(ArrayList(selectedProducts))
+            },
+            onEmptyShelfAction = {
+                try {
+                    findNavController().navigate(R.id.action_skinDetailFragment_to_productRecommendationFragment)
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        context,
+                        "Silakan buka menu Produk untuk menambah stok.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        )
         bottomSheet.show(parentFragmentManager, "ProductSelectionBottomSheet")
     }
 
@@ -217,7 +217,8 @@ class SkinDetailFragment : Fragment() {
     }
 
     private fun showEditNotesDialog() {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_notes, null)
+        val dialogView =
+            LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_notes, null)
         val editText = dialogView.findViewById<EditText>(R.id.etNotes)
         editText.setText(args.currentAnalysis.notes)
 
@@ -243,5 +244,14 @@ class SkinDetailFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun fetchMyShelfData() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val products = dbHelper.getMyShelfProducts()
+            withContext(Dispatchers.Main) {
+                myShelfProducts = products
+            }
+        }
     }
 }
