@@ -59,6 +59,8 @@ class ProfileFragment : Fragment() {
 
         viewModel = ViewModelProvider(this)[ProfileViewModel::class.java]
 
+        val cardMyShelf = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.cardMyShelf)
+
         ivProfilePicture = view.findViewById(R.id.ivProfilePicture)
         progressBarPhoto = view.findViewById(R.id.progressBarPhoto)
         tvUserName = view.findViewById(R.id.profile_name)
@@ -74,6 +76,14 @@ class ProfileFragment : Fragment() {
         setupListeners()
         setupObservers()
         viewModel.loadProfile()
+
+        cardMyShelf.setOnClickListener {
+            try {
+                view.findNavController().navigate(R.id.action_profileFragment_to_myShelfFragment)
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileFragment", "Nav Error: ${e.message}")
+            }
+        }
     }
 
     private fun setupListeners() {
