@@ -1,4 +1,3 @@
-// File: src/main/java/com/example/dermamindapp/ml/SkinAnalyzer.kt
 package com.example.dermamindapp.ml
 
 import android.content.Context
